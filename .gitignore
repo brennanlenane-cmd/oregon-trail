@@ -4,3 +4,7 @@
 
 # Summer Engine local-only state
 .summer/local/
+
+# Summer editor autosave/temp scene files
+*.tmp
+project.godot.bak
