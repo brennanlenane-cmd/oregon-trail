@@ -18,15 +18,20 @@ BOXES = {
 }
 
 
-def strip_background(img: Image.Image) -> Image.Image:
+# The white ox is nearly paper-colored — he keeps a tight threshold so his
+# hide survives; everyone else gets the loose one that kills the darker band.
+TIGHT = {"ox"}
+
+
+def strip_background(img: Image.Image, name: str) -> Image.Image:
     img = img.convert("RGBA")
     pixels = img.load()
     width, height = img.size
-    # The sheet background is flat cream; anything close to it goes clear.
+    floor_r, floor_g, floor_b = (224, 218, 198) if name in TIGHT else (213, 206, 184)
     for y in range(height):
         for x in range(width):
             r, g, b, a = pixels[x, y]
-            if r > 222 and g > 216 and b > 196 and abs(r - b) < 45:
+            if r > floor_r and g > floor_g and b > floor_b and abs(r - b) < 52:
                 pixels[x, y] = (0, 0, 0, 0)
     return img
 
@@ -35,6 +40,6 @@ if __name__ == "__main__":
     sheet = Image.open(sys.argv[1])
     os.makedirs(OUT, exist_ok=True)
     for name, box in BOXES.items():
-        sprite = strip_background(sheet.crop(box))
+        sprite = strip_background(sheet.crop(box), name)
         sprite.save(os.path.join(OUT, name + ".png"))
         print("sprite %-6s %dx%d" % (name, sprite.size[0], sprite.size[1]))

@@ -495,6 +495,12 @@ var landmark_plate_panel: PanelContainer
 var encounter_art_plate: PanelContainer
 # The viewport tree: HUD pinned top, one dynamic content layer in the middle
 # (map view XOR encounter view), the hand deck banded at the bottom.
+var camp_title_layer: Control      # step 1: the hook — campfire hero + three choices
+var camp_manifest_layer: Control   # step 2: the wagon manifest (the old settings page)
+var camp_history_modal: PanelContainer
+var camp_history_modal_label: Label
+var title_continue_button: Button
+var camp_advanced_row: HBoxContainer
 var top_hud_bar: Control
 var dynamic_content_layer: Control
 var map_view: Control
@@ -743,6 +749,8 @@ func _ready() -> void:
 	_create_stable_probe_nodes()
 	if camp_continue_button != null:
 		camp_continue_button.visible = FileAccess.file_exists(SAVE_PATH)
+	if title_continue_button != null:
+		title_continue_button.visible = FileAccess.file_exists(SAVE_PATH)
 	_refresh_trailblazer_ui()
 	_refresh_ui()
 	_juice_all_buttons(self)
@@ -1307,6 +1315,52 @@ func _build_ui() -> void:
 	_build_camp_overlay()
 	return
 
+func _place_hero_piece(hero: Control, piece: Control, left: float, right: float, top: float, bottom: float) -> void:
+	piece.set_anchors_preset(Control.PRESET_FULL_RECT)
+	piece.anchor_left = left
+	piece.anchor_right = right
+	piece.anchor_top = top
+	piece.anchor_bottom = bottom
+	piece.offset_left = 0.0
+	piece.offset_right = 0.0
+	piece.offset_top = 0.0
+	piece.offset_bottom = 0.0
+	piece.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hero.add_child(piece)
+
+func _add_hero_sprite(hero: Control, sprite_name: String, left: float, right: float, top: float, bottom: float, flip: bool) -> void:
+	var sprite_path := "res://assets/sprites/family/%s.png" % sprite_name
+	if not ResourceLoader.exists(sprite_path):
+		return
+	var piece := TextureRect.new()
+	piece.texture = load(sprite_path) as Texture2D
+	piece.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	piece.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	piece.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	piece.flip_h = flip
+	_place_hero_piece(hero, piece, left, right, top, bottom)
+
+func _open_manifest() -> void:
+	if camp_title_layer != null:
+		camp_title_layer.visible = false
+	if camp_manifest_layer != null:
+		camp_manifest_layer.visible = true
+
+func _back_to_title() -> void:
+	if camp_manifest_layer != null:
+		camp_manifest_layer.visible = false
+	if camp_history_modal != null:
+		camp_history_modal.visible = false
+	if camp_title_layer != null:
+		camp_title_layer.visible = true
+
+func _open_history_modal() -> void:
+	if camp_history_modal == null:
+		return
+	if camp_history_modal_label != null and history_label != null:
+		camp_history_modal_label.text = history_label.text
+	camp_history_modal.visible = true
+
 func _build_camp_overlay() -> void:
 	camp_overlay = Control.new()
 	camp_overlay.name = "ExpeditionCampHub"
@@ -1335,20 +1389,131 @@ func _build_camp_overlay() -> void:
 	camp_wash.color = Color(0.07, 0.07, 0.08, 0.55) if UI_DARK else Color(0.93, 0.89, 0.78, 0.58)
 	camp_wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	camp_overlay.add_child(camp_wash)
+	# ---- STEP 1: the front door. Not a settings form — a family resting at
+	# their fire before the dark country, and three choices. The paperwork
+	# lives behind NEW JOURNEY. ----
+	camp_title_layer = Control.new()
+	camp_title_layer.name = "TitleLayer"
+	camp_title_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	camp_overlay.add_child(camp_title_layer)
+	var masthead_box := VBoxContainer.new()
+	masthead_box.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	masthead_box.anchor_top = 0.06
+	masthead_box.anchor_bottom = 0.06
+	masthead_box.offset_top = 0.0
+	masthead_box.offset_bottom = 0.0
+	camp_title_layer.add_child(masthead_box)
+	var masthead := _label("THE LONG TRAIL", 58, Color("#a02818"))
+	masthead.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	masthead_box.add_child(masthead)
+	var mast_sub := _label("INDEPENDENCE, MISSOURI  ·  SPRING, 1848", 12, Color("#a49d90"))
+	mast_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	masthead_box.add_child(mast_sub)
+	# The hero: pixel family gathered at a fire in front of the dark engraving.
+	var hero := Control.new()
+	hero.name = "CampfireHero"
+	hero.set_anchors_preset(Control.PRESET_FULL_RECT)
+	hero.anchor_left = 0.14
+	hero.anchor_right = 0.86
+	hero.anchor_top = 0.26
+	hero.anchor_bottom = 0.80
+	hero.offset_left = 0.0
+	hero.offset_right = 0.0
+	hero.offset_top = 0.0
+	hero.offset_bottom = 0.0
+	hero.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	camp_title_layer.add_child(hero)
+	var fire_glow := TextureRect.new()
+	var glow_grad := Gradient.new()
+	glow_grad.set_color(0, Color(1.0, 0.72, 0.35, 0.34))
+	glow_grad.set_color(1, Color(1.0, 0.6, 0.2, 0.0))
+	var glow_tex := GradientTexture2D.new()
+	glow_tex.gradient = glow_grad
+	glow_tex.fill = GradientTexture2D.FILL_RADIAL
+	glow_tex.fill_from = Vector2(0.5, 0.5)
+	glow_tex.fill_to = Vector2(1.0, 0.5)
+	fire_glow.texture = glow_tex
+	fire_glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_place_hero_piece(hero, fire_glow, 0.30, 0.70, 0.28, 1.0)
+	var flicker := create_tween().set_loops()
+	flicker.tween_property(fire_glow, "modulate:a", 0.62, 0.9).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	flicker.tween_property(fire_glow, "modulate:a", 1.0, 1.1).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_add_hero_sprite(hero, "wagon", 0.04, 0.28, 0.30, 0.98, false)
+	_add_hero_sprite(hero, "dog", 0.39, 0.47, 0.68, 0.98, true)
+	_add_hero_sprite(hero, "campfire", 0.47, 0.57, 0.60, 1.0, false)
+	_add_hero_sprite(hero, "pa", 0.60, 0.69, 0.34, 0.98, false)
+	_add_hero_sprite(hero, "ma", 0.68, 0.77, 0.38, 0.98, false)
+	_add_hero_sprite(hero, "sarah", 0.76, 0.84, 0.44, 0.98, false)
+	# Three unboxed choices, bottom right.
+	var title_menu := VBoxContainer.new()
+	title_menu.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	title_menu.anchor_left = 0.62
+	title_menu.anchor_right = 0.95
+	title_menu.anchor_top = 0.74
+	title_menu.anchor_bottom = 0.74
+	title_menu.offset_left = 0.0
+	title_menu.offset_right = 0.0
+	title_menu.add_theme_constant_override("separation", 8)
+	camp_title_layer.add_child(title_menu)
+	title_continue_button = Button.new()
+	title_continue_button.name = "TitleContinue"
+	title_continue_button.text = "CONTINUE JOURNEY  →"
+	title_continue_button.visible = false
+	title_continue_button.add_theme_font_override("font", font_display)
+	title_continue_button.add_theme_font_size_override("font_size", 22)
+	title_continue_button.add_theme_stylebox_override("normal", _make_style(Color("#d5b66d"), Color("#efd28e"), 9, 1))
+	title_continue_button.add_theme_color_override("font_color", Color("#1b211e"))
+	title_continue_button.pressed.connect(_on_continue_run_pressed)
+	title_menu.add_child(title_continue_button)
+	var new_journey := Button.new()
+	new_journey.name = "NewJourney"
+	new_journey.text = "NEW JOURNEY  →"
+	new_journey.add_theme_font_override("font", font_display)
+	new_journey.add_theme_font_size_override("font_size", 22)
+	new_journey.add_theme_stylebox_override("normal", _make_style(Color("#a02818"), Color("#6b1a10"), 9, 2))
+	new_journey.add_theme_color_override("font_color", Color("#f6efdc"))
+	new_journey.pressed.connect(_open_manifest)
+	title_menu.add_child(new_journey)
+	var past_journeys := Button.new()
+	past_journeys.name = "PastJourneys"
+	past_journeys.text = "PAST JOURNEYS"
+	past_journeys.flat = true
+	past_journeys.add_theme_font_override("font", font_display)
+	past_journeys.add_theme_font_size_override("font_size", 16)
+	past_journeys.add_theme_color_override("font_color", _themed_text(Color("#4b3d2a")))
+	past_journeys.pressed.connect(_open_history_modal)
+	title_menu.add_child(past_journeys)
+	# ---- STEP 2: the Wagon Manifest — shown only after NEW JOURNEY. ----
 	var margin := MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	margin.add_theme_constant_override("margin_left", 28)
 	margin.add_theme_constant_override("margin_right", 28)
 	margin.add_theme_constant_override("margin_top", 24)
 	margin.add_theme_constant_override("margin_bottom", 24)
+	margin.visible = false
 	camp_overlay.add_child(margin)
+	camp_manifest_layer = margin
 	var page := VBoxContainer.new()
 	page.add_theme_constant_override("separation", 12)
 	margin.add_child(page)
-	var heading := _label("THE LONG TRAIL", 46, Color("#a02818"))
+	var manifest_header := HBoxContainer.new()
+	page.add_child(manifest_header)
+	var back_button := Button.new()
+	back_button.text = "←"
+	back_button.flat = true
+	back_button.add_theme_font_size_override("font_size", 22)
+	back_button.add_theme_color_override("font_color", _themed_text(Color("#4b3d2a")))
+	back_button.tooltip_text = "Back to the fire."
+	back_button.pressed.connect(_back_to_title)
+	manifest_header.add_child(back_button)
+	var heading := _label("THE WAGON MANIFEST", 30, Color("#a02818"))
 	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	page.add_child(heading)
-	var subheading := _label("INDEPENDENCE, MISSOURI  ·  SPRING, 1848", 12, Color("#6b5b41"))
+	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	manifest_header.add_child(heading)
+	var header_spacer := Control.new()
+	header_spacer.custom_minimum_size.x = 34.0
+	manifest_header.add_child(header_spacer)
+	var subheading := _label("WHO RIDES, AND WHAT THE WAGON CARRIES", 11, Color("#6b5b41"))
 	subheading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	page.add_child(subheading)
 	var title_spacer := Control.new()
@@ -1441,9 +1606,24 @@ func _build_camp_overlay() -> void:
 		slot.add_child(edit)
 		name_edits[member_id] = edit
 
+	# Seeds, perks, difficulty, the record book: tucked behind one drawer so
+	# the manifest stays a manifest, not a tax form.
+	var advanced_toggle := Button.new()
+	advanced_toggle.name = "AdvancedSupplies"
+	advanced_toggle.text = "ADVANCED SUPPLIES  ▸"
+	advanced_toggle.flat = true
+	advanced_toggle.add_theme_font_override("font", font_display)
+	advanced_toggle.add_theme_font_size_override("font_size", 14)
+	advanced_toggle.add_theme_color_override("font_color", _themed_text(Color("#4b3d2a")))
+	page.add_child(advanced_toggle)
 	var extras_row := HBoxContainer.new()
 	extras_row.add_theme_constant_override("separation", 10)
+	extras_row.visible = false
 	page.add_child(extras_row)
+	camp_advanced_row = extras_row
+	advanced_toggle.pressed.connect(func() -> void:
+		camp_advanced_row.visible = not camp_advanced_row.visible
+		advanced_toggle.text = "ADVANCED SUPPLIES  ▾" if camp_advanced_row.visible else "ADVANCED SUPPLIES  ▸")
 	var outfit_panel := PanelContainer.new()
 	outfit_panel.name = "WagonOutfitting"
 	outfit_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1561,6 +1741,43 @@ func _build_camp_overlay() -> void:
 	camp_start_button.tooltip_text = "Begins a fresh run. Any saved journey is retired."
 	camp_start_button.pressed.connect(_on_start_expedition_pressed)
 	footer.add_child(camp_start_button)
+	# The record book: a modal over the title screen, opened from PAST JOURNEYS.
+	camp_history_modal = PanelContainer.new()
+	camp_history_modal.name = "PastJourneysModal"
+	camp_history_modal.set_anchors_preset(Control.PRESET_CENTER)
+	camp_history_modal.anchor_left = 0.28
+	camp_history_modal.anchor_right = 0.72
+	camp_history_modal.anchor_top = 0.24
+	camp_history_modal.anchor_bottom = 0.24
+	camp_history_modal.offset_left = 0.0
+	camp_history_modal.offset_right = 0.0
+	camp_history_modal.visible = false
+	camp_history_modal.add_theme_stylebox_override("panel", _make_style(Color(0.93, 0.885, 0.78, 0.98), Color("#8c6a40"), 8, 2))
+	camp_overlay.add_child(camp_history_modal)
+	var modal_box := VBoxContainer.new()
+	modal_box.add_theme_constant_override("separation", 8)
+	camp_history_modal.add_child(modal_box)
+	modal_box.add_child(_label("PAST JOURNEYS", 22, Color("#a02818")))
+	camp_history_modal_label = _label("No journeys in the book yet.", 11, Color("#4b3d2a"))
+	camp_history_modal_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	modal_box.add_child(camp_history_modal_label)
+	var modal_buttons := HBoxContainer.new()
+	modal_buttons.add_theme_constant_override("separation", 8)
+	modal_box.add_child(modal_buttons)
+	var modal_compendium := Button.new()
+	modal_compendium.text = "COMPENDIUM"
+	modal_compendium.add_theme_font_size_override("font_size", 12)
+	modal_compendium.add_theme_stylebox_override("normal", _make_style(Color("#e6d9ba"), Color("#30251b"), 8, 1))
+	modal_compendium.add_theme_color_override("font_color", _themed_text(Color("#221c14")))
+	modal_compendium.pressed.connect(_open_pile_view.bind("compendium"))
+	modal_buttons.add_child(modal_compendium)
+	var modal_close := Button.new()
+	modal_close.text = "CLOSE"
+	modal_close.add_theme_font_size_override("font_size", 12)
+	modal_close.add_theme_stylebox_override("normal", _make_style(Color("#e6d9ba"), Color("#30251b"), 8, 1))
+	modal_close.add_theme_color_override("font_color", _themed_text(Color("#221c14")))
+	modal_close.pressed.connect(func() -> void: camp_history_modal.visible = false)
+	modal_buttons.add_child(modal_close)
 
 func _change_trailblazer(delta: int) -> void:
 	var max_level: int = mini(int(profile.get("cleared", -1)) + 1, TRAILBLAZER_RULES.size())
@@ -3770,8 +3987,12 @@ func _return_to_camp() -> void:
 	camp_overlay.visible = true
 	if camp_continue_button != null:
 		camp_continue_button.visible = false
+	if title_continue_button != null:
+		title_continue_button.visible = false
 	if return_to_camp_button != null:
 		return_to_camp_button.visible = false
+	# Coming back to camp always lands on the fire, not the paperwork.
+	_back_to_title()
 	_refresh_ui()
 
 func _on_route_selected(index: int) -> void:

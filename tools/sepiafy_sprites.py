@@ -48,8 +48,10 @@ def sepiafy(img: Image.Image) -> Image.Image:
 
 
 if __name__ == "__main__":
+    import sys
     os.makedirs(BUSTS, exist_ok=True)
-    for name in ["pa", "ma", "sarah", "dog", "ox", "wagon"]:
+    targets = sys.argv[1:] if len(sys.argv) > 1 else ["pa", "ma", "sarah", "dog", "ox", "wagon"]
+    for name in targets:
         path = os.path.join(FAMILY, name + ".png")
         if not os.path.exists(path):
             continue
