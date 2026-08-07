@@ -30,6 +30,7 @@ class TrailMapCanvas extends Control:
 	# The family, marching at the head of the red line — 16-bit pilgrims on a
 	# period map, like the journey scene in a picture show.
 	var march_textures: Array[Texture2D] = []
+	var wagon_texture: Texture2D
 	var march_phase := 0.0
 
 	func _process(delta: float) -> void:
@@ -174,24 +175,31 @@ class TrailMapCanvas extends Control:
 			var current := i == current_node
 			var destination := i == route_points.size() - 1
 			var danger: bool = str(landmark_labels[i]) == "DANGER" and not visited
+			# Markers stay small — the map is the star, the dots are punctuation.
 			if danger:
-				draw_circle(point, 8.0, Color("#30251b"))
-				draw_circle(point, 5.5, Color("#a02818"))
-				draw_string(font, point + Vector2(-6, -12), "☠", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("#a02818"))
+				draw_circle(point, 5.0, Color("#30251b"))
+				draw_circle(point, 3.4, Color("#a02818"))
+				draw_string(font, point + Vector2(-5, -8), "☠", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("#a02818"))
 			else:
-				draw_circle(point, 7.0 if current else 5.0, Color("#30251b"))
-				draw_circle(point, 4.5 if current else 3.0, Color("#4e7a5e") if visited else (Color("#e4bd65") if current or destination else Color(0.75, 0.68, 0.55)))
+				draw_circle(point, 4.0 if current else 3.4, Color("#30251b"))
+				draw_circle(point, 2.6 if current else 2.0, Color("#4e7a5e") if visited else (Color("#e4bd65") if current or destination else Color(0.75, 0.68, 0.55)))
 			var stop_name := ""
 			if not stop_names.is_empty():
 				stop_name = str(stop_names[_stop_for_node(i)])
 			if stop_name != "":
 				var name_color := Color("#a02818") if destination else ink
 				# Three-step stagger keeps neighboring names off each other.
-				var dy: float = [-16.0, 26.0, -30.0][i % 3]
-				var name_width := font.get_string_size(stop_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
-				draw_string(font, point + Vector2(-name_width * 0.5, dy), stop_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, name_color)
-			if current:
-				draw_circle(point, 15.0, Color("#a02818"), false, 2.5)
+				var dy: float = [-12.0, 20.0, -24.0][i % 3]
+				var name_width := font.get_string_size(stop_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 9).x
+				draw_string(font, point + Vector2(-name_width * 0.5, dy), stop_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, name_color)
+			if current and wagon_texture != null:
+				# The marker IS the wagon — parked right on the node, swaying.
+				var wagon_h := 26.0
+				var wagon_w := wagon_texture.get_width() * (wagon_h / wagon_texture.get_height())
+				var sway := sin(march_phase * 3.0) * 1.0
+				draw_texture_rect(wagon_texture, Rect2(Vector2(point.x - wagon_w * 0.5, point.y - wagon_h + 2.0 + sway), Vector2(wagon_w, wagon_h)), false)
+			elif current:
+				draw_circle(point, 10.0, Color("#a02818"), false, 2.0)
 		_draw_march()
 		_draw_fork()
 
@@ -213,10 +221,10 @@ class TrailMapCanvas extends Control:
 			var sprite := march_textures[i]
 			if sprite == null:
 				continue
-			var sprite_h := 34.0
+			var sprite_h := 22.0
 			var sprite_w := sprite.get_width() * (sprite_h / sprite.get_height())
-			var spot := head + back_direction * (30.0 + float(i) * 21.0)
-			var bob := sin(march_phase * 7.0 + float(i) * 1.3) * 1.6
+			var spot := head + back_direction * (34.0 + float(i) * 14.0)
+			var bob := sin(march_phase * 7.0 + float(i) * 1.3) * 1.4
 			draw_texture_rect(sprite, Rect2(Vector2(spot.x - sprite_w * 0.5, spot.y - sprite_h + bob), Vector2(sprite_w, sprite_h)), false)
 
 	func _draw_fork() -> void:
@@ -1792,6 +1800,8 @@ func _build_map_first_ui() -> void:
 		var sprite_path := "res://assets/sprites/family/%s.png" % member_sprite
 		if ResourceLoader.exists(sprite_path):
 			map_canvas.march_textures.append(load(sprite_path) as Texture2D)
+	if ResourceLoader.exists("res://assets/sprites/family/wagon.png"):
+		map_canvas.wagon_texture = load("res://assets/sprites/family/wagon.png") as Texture2D
 	map_canvas.route_selected.connect(_on_route_selected)
 	map_canvas.road_selected.connect(_on_road_selected)
 
