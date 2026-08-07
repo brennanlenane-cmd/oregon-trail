@@ -1,7 +1,8 @@
 extends Control
 
-# The table. Composes the painted map, the resource strip, one HazardGate,
-# and the hand of CardControls. All rules live in GameState; this file only
+# The table. Two views on one screen — the JOURNEY (painted map + hazard
+# manifest) and the FIGHT (full-bleed window into the West) — plus the SPOILS
+# overlay and the end-of-run sheet. All rules live in GameState; this file
 # renders, forwards intents, and reacts to signals.
 
 const HAZARDS := [
@@ -11,14 +12,23 @@ const HAZARDS := [
 		"pay_fx": {"wagon": 6}, "pass_fx": {"days": 1, "wagon": -8}, "art": "res://assets/art/scene/event-breakdown.png"},
 	{"title": "COLD CAMP", "tag": "FIRE", "pay": "MORALE +8", "pass": "+1 DAY · MORALE -4",
 		"pay_fx": {"morale": 8}, "pass_fx": {"days": 1, "morale": -4}, "art": "res://assets/art/scene/event-camp.png"},
+	{"title": "THE BISON HERD", "tag": "GUN", "pay": "SUPPLIES +10", "pass": "+1 DAY",
+		"pay_fx": {"supplies": 10}, "pass_fx": {"days": 1}, "art": "res://assets/art/bison-hunt.jpg"},
 	{"title": "BAD WATER", "tag": "GOODS", "pay": "SUPPLIES -2 · SAFE", "pass": "+1 DAY · MORALE -6",
 		"pay_fx": {"supplies": -2}, "pass_fx": {"days": 1, "morale": -6}, "art": "res://assets/art/river-crossing.jpg"},
+	{"title": "PRAIRIE FIRE", "tag": "TRAIL", "pay": "NO LOST DAY · WAGON -6", "pass": "+2 DAYS",
+		"pay_fx": {"wagon": -6}, "pass_fx": {"days": 2}, "art": "res://assets/art/prairie-fire.jpg"},
 ]
 
-var world: Control            # everything the screen shake jolts
+var world: Control
+var journey_view: Control
 var gate: HazardGate
+var battle: BattleStage
+var rewards: RewardPanel
+var end_sheet: PanelContainer
 var hand_row: Control
 var strip_values: Dictionary = {}
+var next_stop_label: Label
 var juice: JuiceLayer
 var hazard_cursor := 0
 var rng := RandomNumberGenerator.new()
@@ -29,20 +39,19 @@ func _ready() -> void:
 	GameState.resources_changed.connect(_refresh_strip)
 	GameState.hand_changed.connect(_rebuild_hand)
 	GameState.wager_rolled.connect(_on_wager_rolled)
+	GameState.status_bites.connect(_on_status_bites)
+	GameState.leg_advanced.connect(_on_leg_advanced)
+	GameState.encounter_updated.connect(func() -> void: battle.refresh())
+	GameState.enemy_acted.connect(func(move: Dictionary, landed: int) -> void: battle.announce(move, landed))
+	GameState.encounter_won.connect(_on_encounter_won)
+	GameState.rewards_offered.connect(func(options: Array) -> void: rewards.offer(options))
+	GameState.game_ended.connect(_on_game_ended)
 	GameState.start_run()
-	_next_hazard()
-	# Headless test hook: `Summer.exe --headless --path . -- --smoke`
+	# Headless hooks: `-- --smoke` runs the suite, `-- --probe` saves screenshots.
 	if OS.get_cmdline_user_args().has("--smoke"):
 		add_child((load("res://tests/smoke.gd") as GDScript).new())
 	elif OS.get_cmdline_user_args().has("--probe"):
-		_probe_screenshot()
-
-func _probe_screenshot() -> void:
-	await get_tree().create_timer(1.2).timeout
-	var shot := get_viewport().get_texture().get_image()
-	shot.save_png("user://probe_fresh_table.png")
-	print("PROBE SAVED")
-	get_tree().quit()
+		_probe_screenshots()
 
 func _build_table() -> void:
 	var backdrop := ColorRect.new()
@@ -53,7 +62,11 @@ func _build_table() -> void:
 	world.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	world.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(world)
-	# The painted West fills the table.
+	# ---- Journey view: the painted West + the hazard manifest ----
+	journey_view = Control.new()
+	journey_view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	journey_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	world.add_child(journey_view)
 	var map := TextureRect.new()
 	map.texture = load("res://assets/art/scene/map-west.png")
 	map.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -61,17 +74,32 @@ func _build_table() -> void:
 	map.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	map.modulate = Color(0.82, 0.78, 0.7)
 	map.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	world.add_child(map)
-	# Resource strip: one wood plank across the top.
+	journey_view.add_child(map)
+	gate = HazardGate.new()
+	gate.anchor_left = 0.56
+	gate.anchor_right = 0.97
+	gate.anchor_top = 0.11
+	gate.anchor_bottom = 0.11
+	gate.cleared.connect(func(hazard: Dictionary) -> void: GameState.travel(hazard.get("pay_fx", {})))
+	gate.forged.connect(func(hazard: Dictionary) -> void: GameState.travel(hazard.get("pass_fx", {})))
+	gate.trigger_juice.connect(func(s: float, e: String) -> void: GameState.juice_requested.emit(s, e))
+	journey_view.add_child(gate)
+	# ---- Fight view: full-bleed window into the West ----
+	battle = BattleStage.new()
+	battle.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	battle.visible = false
+	battle.end_turn_pressed.connect(func() -> void: GameState.end_turn())
+	world.add_child(battle)
+	# ---- Wood strip on top ----
 	var strip := PanelContainer.new()
 	strip.add_theme_stylebox_override("panel", UiKit.panel("wood"))
 	strip.anchor_right = 1.0
 	strip.offset_bottom = 54.0
 	world.add_child(strip)
 	var strip_row := HBoxContainer.new()
-	strip_row.add_theme_constant_override("separation", 26)
+	strip_row.add_theme_constant_override("separation", 24)
 	strip.add_child(strip_row)
-	for stat in ["DAY", "SUPPLIES", "MORALE", "WAGON", "GRIT"]:
+	for stat in ["DAY", "SUPPLIES", "MORALE", "WAGON", "$", "GRIT"]:
 		var cell := HBoxContainer.new()
 		cell.add_theme_constant_override("separation", 8)
 		strip_row.add_child(cell)
@@ -81,17 +109,13 @@ func _build_table() -> void:
 		value.add_theme_font_override("font", UiKit.display_font())
 		cell.add_child(value)
 		strip_values[stat] = value
-	# The hazard manifest, pinned right of center.
-	gate = HazardGate.new()
-	gate.anchor_left = 0.56
-	gate.anchor_right = 0.97
-	gate.anchor_top = 0.12
-	gate.anchor_bottom = 0.12
-	gate.cleared.connect(_on_gate_cleared)
-	gate.forged.connect(_on_gate_forged)
-	gate.trigger_juice.connect(func(s: float, e: String) -> void: GameState.juice_requested.emit(s, e))
-	world.add_child(gate)
-	# The hand rides the bottom.
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	strip_row.add_child(spacer)
+	next_stop_label = UiKit.label("", 16, Color("#c98d4b"))
+	next_stop_label.add_theme_font_override("font", UiKit.display_font())
+	strip_row.add_child(next_stop_label)
+	# ---- The hand ----
 	hand_row = Control.new()
 	hand_row.anchor_top = 1.0
 	hand_row.anchor_bottom = 1.0
@@ -99,16 +123,85 @@ func _build_table() -> void:
 	hand_row.offset_top = -278.0
 	hand_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	world.add_child(hand_row)
+	# ---- Overlays ----
+	rewards = RewardPanel.new()
+	rewards.taken.connect(func(index: int) -> void: GameState.take_reward(index))
+	rewards.skipped.connect(func() -> void: GameState.skip_reward())
+	add_child(rewards)
+	end_sheet = PanelContainer.new()
+	end_sheet.add_theme_stylebox_override("panel", UiKit.panel("paper"))
+	end_sheet.anchor_left = 0.3
+	end_sheet.anchor_right = 0.7
+	end_sheet.anchor_top = 0.3
+	end_sheet.anchor_bottom = 0.3
+	end_sheet.visible = false
+	add_child(end_sheet)
 	juice = JuiceLayer.new()
 	juice.shake_target = world
 	add_child(juice)
 
+# ---- view switching ----
+
+func _on_leg_advanced(stop_name: String, is_fight: bool) -> void:
+	next_stop_label.text = "NEXT  ·  %s" % stop_name.to_upper()
+	battle.visible = is_fight
+	journey_view.visible = not is_fight
+	if is_fight:
+		battle.open(GameState.enemy, EnemiesData.region_for_stop(GameState.stop_index))
+	else:
+		var hazard: Dictionary = HAZARDS[hazard_cursor % HAZARDS.size()]
+		hazard_cursor += 1
+		gate.configure(hazard)
+		gate.set_socket_pulse(_holding_tag(str(hazard["tag"])))
+
+func _on_encounter_won(gold: int) -> void:
+	battle.enemy_dies()
+	_float_note("THREAT BROKEN  ·  +$%d" % gold, Color("#1f5c33"))
+
+func _on_game_ended(won: bool, cause: String) -> void:
+	battle.visible = false
+	rewards.visible = false
+	end_sheet.visible = true
+	for child in end_sheet.get_children():
+		child.queue_free()
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 12)
+	end_sheet.add_child(box)
+	var headline := UiKit.label("OREGON CITY" if won else "THE WAGON STOPS", 40, UiKit.INK if won else UiKit.VERMILION)
+	headline.add_theme_font_override("font", UiKit.display_font())
+	headline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(headline)
+	var line := UiKit.label(
+		"%d days  ·  %d legs" % [GameState.day, GameState.leg] if won else cause,
+		14, Color("#4b3d2a"))
+	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(line)
+	var again := Button.new()
+	again.text = "NEW JOURNEY"
+	again.custom_minimum_size = Vector2(0, 46)
+	again.add_theme_stylebox_override("normal", UiKit.panel("stamp"))
+	again.add_theme_stylebox_override("hover", UiKit.panel("stamp"))
+	again.add_theme_font_override("font", UiKit.display_font())
+	again.add_theme_color_override("font_color", Color("#f6efdc"))
+	again.pressed.connect(func() -> void:
+		end_sheet.visible = false
+		GameState.start_run(int(Time.get_unix_time_from_system()) % 100000)
+	)
+	box.add_child(again)
+
+# ---- strip + hand ----
+
 func _refresh_strip() -> void:
 	strip_values["DAY"].text = "%02d" % GameState.day
+	strip_values["DAY"].add_theme_color_override("font_color",
+		Color("#a02818") if GameState.day > GameState.WINTER_HARD_DAY
+		else (Color("#c98d4b") if GameState.day > GameState.WINTER_SOFT_DAY else Color("#e7dcbd")))
 	strip_values["SUPPLIES"].text = str(GameState.supplies)
 	strip_values["MORALE"].text = str(GameState.morale)
 	strip_values["WAGON"].text = str(GameState.wagon)
-	strip_values["GRIT"].text = "%d" % GameState.grit
+	strip_values["$"].text = str(GameState.money)
+	strip_values["GRIT"].text = str(GameState.grit)
 
 func _rebuild_hand() -> void:
 	for child in hand_row.get_children():
@@ -127,6 +220,8 @@ func _rebuild_hand() -> void:
 		card.home_position = card.position
 		card.home_rotation = card.rotation_degrees
 		hand_row.add_child(card)
+	if battle.visible:
+		battle.refresh()
 
 func _make_card(card_id: String, index: int) -> CardControl:
 	var data := CardsData.by_id(card_id)
@@ -135,66 +230,20 @@ func _make_card(card_id: String, index: int) -> CardControl:
 	card.hand_index = index
 	card.custom_minimum_size = Vector2(172, 232)
 	card.size = Vector2(172, 232)
-	# Face: paper panel, letterpress title, cost stamp, art plate, rules line, tag chip.
-	var face := PanelContainer.new()
-	face.add_theme_stylebox_override("panel", UiKit.panel("paper"))
+	card.loose_play = GameState.encounter_active
+	var face := UiKit.card_face(data, GameState.card_cost(card_id))
 	face.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(face)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 6)
-	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	face.add_child(box)
-	var title_row := HBoxContainer.new()
-	title_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_child(title_row)
-	var title := UiKit.label(str(data.get("title", card_id)), 15, UiKit.INK)
-	title.add_theme_font_override("font", UiKit.display_font())
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	title_row.add_child(title)
-	var cost := PanelContainer.new()
-	cost.add_theme_stylebox_override("panel", UiKit.panel("stamp"))
-	cost.rotation_degrees = rng.randf_range(-2.0, 2.0)
-	title_row.add_child(cost)
-	var cost_label := UiKit.label(str(GameState.card_cost(card_id)), 14, Color("#f6efdc"))
-	cost_label.add_theme_font_override("font", UiKit.display_font())
-	cost.add_child(cost_label)
-	var art := TextureRect.new()
-	var art_path := str(data.get("art", ""))
-	if not art_path.is_empty() and ResourceLoader.exists(art_path):
-		art.texture = load(art_path)
-	art.custom_minimum_size = Vector2(0, 104)
-	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	art.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_child(art)
-	var rules := UiKit.label(str(data.get("rules_text", "")), 11, Color("#4b3d2a"))
-	rules.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	rules.max_lines_visible = 3
-	rules.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_child(rules)
-	var tag_chip := PanelContainer.new()
-	var tag := str(data.get("tag", ""))
-	var chip_style := UiKit.panel("wood").duplicate() as StyleBoxTexture
-	chip_style.modulate_color = UiKit.TAG_COLORS.get(tag, Color.WHITE)
-	tag_chip.add_theme_stylebox_override("panel", chip_style)
-	tag_chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	tag_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_child(tag_chip)
-	var tag_label := UiKit.label(tag, 9, Color("#f6efdc"))
-	tag_label.add_theme_font_override("font", UiKit.display_font())
-	tag_chip.add_child(tag_label)
+	if not GameState.can_play(card_id):
+		face.modulate = Color(0.72, 0.7, 0.66)
 	card.card_played.connect(_on_card_dropped.bind(card))
 	card.stoke_requested.connect(_on_stoke.bind(card))
 	card.trigger_juice.connect(func(s: float, e: String) -> void: GameState.juice_requested.emit(s, e))
 	return card
 
+# In a fight, dropping a card ANYWHERE plays it (the enemy is the target);
+# on the trail it must land in the gate's socket (the socket calls receive).
 func _on_card_dropped(card_data: Dictionary, card: CardControl) -> void:
-	# The socket already stamped the gate; the play still goes through the state
-	# (grit, mechanics, piles) so the card's own effect fires too.
 	var index := GameState.hand.find(str(card_data.get("id", "")))
 	if index >= 0:
 		GameState.play_card(index)
@@ -205,51 +254,45 @@ func _on_stoke(card_data: Dictionary, card: CardControl) -> void:
 	if index >= 0 and GameState.stoke(index):
 		card.queue_free()
 
+# ---- floats ----
+
 func _on_wager_rolled(roll: int, busted: bool) -> void:
-	var pop := UiKit.label("ROLL  %d%s" % [roll, "  ·  BUST" if busted else ""], 34, UiKit.VERMILION if busted else Color("#1f5c33"))
+	_float_note("ROLL  %d%s" % [roll, "  ·  BUST" if busted else ""], UiKit.VERMILION if busted else Color("#1f5c33"))
+
+func _on_status_bites(text: String) -> void:
+	_float_note(text, UiKit.VERMILION)
+
+func _float_note(text: String, color: Color) -> void:
+	var pop := UiKit.label(text, 32, color)
 	pop.add_theme_font_override("font", UiKit.display_font())
-	pop.position = Vector2(size.x * 0.42, size.y * 0.42)
+	pop.position = Vector2(size.x * 0.40, size.y * 0.4)
 	add_child(pop)
 	var tween := create_tween()
 	tween.tween_property(pop, "position:y", pop.position.y - 60.0, 0.9).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	tween.parallel().tween_property(pop, "modulate", Color(1, 1, 1, 0), 0.9)
 	tween.tween_callback(pop.queue_free)
 
-func _on_gate_cleared(hazard: Dictionary) -> void:
-	_apply_travel(hazard.get("pay_fx", {}))
-	_after_leg()
-
-func _on_gate_forged(hazard: Dictionary) -> void:
-	_apply_travel(hazard.get("pass_fx", {}))
-	_after_leg()
-
-func _apply_travel(effects: Dictionary) -> void:
-	for stat in effects.keys():
-		if stat == "days":
-			GameState.day += int(effects[stat])
-		else:
-			GameState._nudge(stat, int(effects[stat]))
-	# The road itself always eats: a leg of travel.
-	var travel := maxi(1, 3 - GameState.travel_bonus)
-	GameState.travel_bonus = 0
-	GameState.day += travel
-	GameState.supplies = maxi(0, GameState.supplies - travel * 2)
-	GameState.morale = clampi(GameState.morale - 1, 0, 100)
-	GameState.resources_changed.emit()
-
-func _after_leg() -> void:
-	await get_tree().create_timer(0.9).timeout
-	GameState.start_leg()
-	_next_hazard()
-
-func _next_hazard() -> void:
-	var hazard: Dictionary = HAZARDS[hazard_cursor % HAZARDS.size()]
-	hazard_cursor += 1
-	gate.configure(hazard)
-	gate.set_socket_pulse(_holding_tag(str(hazard["tag"])))
-
 func _holding_tag(tag: String) -> bool:
 	for card_id in GameState.hand:
 		if str(CardsData.by_id(card_id).get("tag", "")) == tag:
 			return true
 	return false
+
+# ---- probe ----
+
+func _probe_screenshots() -> void:
+	await get_tree().create_timer(1.0).timeout
+	get_viewport().get_texture().get_image().save_png("user://probe_journey.png")
+	# Force a fight for the second shot.
+	GameState.leg = 3
+	GameState.start_encounter()
+	_on_leg_advanced(GameState.next_stop_name(), true)
+	await get_tree().create_timer(0.8).timeout
+	get_viewport().get_texture().get_image().save_png("user://probe_fight.png")
+	# And the spoils screen.
+	GameState.encounter_active = false
+	GameState._offer_rewards()
+	await get_tree().create_timer(0.6).timeout
+	get_viewport().get_texture().get_image().save_png("user://probe_spoils.png")
+	print("PROBE SAVED")
+	get_tree().quit()

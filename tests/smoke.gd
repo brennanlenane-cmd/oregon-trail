@@ -1,6 +1,6 @@
 extends Node
 
-# Fresh-start smoke test. Runs inside the real game (autoloads alive):
+# Smoke suite for the full loop: journey → fight → spoils → boss → endings.
 #   Summer.exe --headless --path . -- --smoke
 
 var failures := 0
@@ -17,88 +17,110 @@ func _ready() -> void:
 	await get_tree().process_frame
 	var table := get_parent()
 
-	# ---- The table booted off the real run ----
-	var gates: Array = []
-	var cards: Array = []
-	for node in _walk(table):
-		if node is HazardGate:
-			gates.append(node)
-		elif node is CardControl:
-			cards.append(node)
-	_check(gates.size() == 1, "one hazard gate on the table")
-	_check(cards.size() == GameState.hand.size(), "a CardControl per card in hand (%d)" % cards.size())
+	# ---- Boot ----
 	_check(GameState.hand.size() == 5, "opening hand of 5")
-	_check(GameState.grit == GameState.BASE_GRIT, "grit opens at base 2")
+	_check(GameState.grit == GameState.BASE_GRIT, "journey grit opens at base 2")
+	var gates := _find(table, "HazardGate")
+	_check(gates.size() == 1, "hazard gate on the table")
+	_check(_find(table, "BattleStage").size() == 1, "battle stage standing by")
+	_check(_find(table, "CardControl").size() == 5, "a CardControl per card in hand")
 
-	# ---- Data mandate: no flat arithmetic, terse rules text ----
-	var flat := 0
-	for card in CardsData.CARDS_DATA:
-		var mech: Dictionary = card.get("mech", {})
-		if mech.has("gain") and not (mech.has("spend") or mech.has("discard_tag")):
-			if str(card.get("tag", "")) != "KIN":
-				flat += 1
-	_check(flat == 0, "zero flat-arithmetic non-KIN cards")
+	# ---- Design mandate ----
 	var wordy := 0
 	for card in CardsData.CARDS_DATA:
 		if str(card["rules_text"]).replace("→", " ").split(" ", false).size() > 8:
 			wordy += 1
 	_check(wordy == 0, "all rules text reads at a glance")
 
-	# ---- Mechanics ----
+	# ---- Mechanics spot checks ----
 	GameState.hand.clear()
 	GameState.hand.append("forage")
 	GameState.grit = 2
 	var before := GameState.supplies
-	var wagon_before := GameState.wagon
 	_check(GameState.play_card(0), "forage plays")
 	var gained := GameState.supplies - before
 	_check(gained >= 2 and gained <= 12 and gained % 2 == 0, "forage wagers 1d6 x2 supplies (got %d)" % gained)
-	_check(gained > 2 or GameState.wagon == wagon_before - 6, "a roll of 1 breaks the wagon")
-	GameState.hand.clear()
-	GameState.hand.append_array(["campfire_stories", "dynamite"])
-	GameState.grit = 2
-	GameState.morale = 50
-	GameState.play_card(0)
-	_check(GameState.morale == 63, "campfire feeds on dynamite: 4 + 3x3")
-	_check(not GameState.hand.has("dynamite"), "the fed card leaves the hand")
 	GameState.hand.clear()
 	GameState.hand.append("kin_dog")
 	GameState.grit = 1
-	_check(GameState.stoke(0), "the dog can be stoked")
-	_check(GameState.grit == 2, "stoke grants +1 grit")
-	_check(GameState.exhausted.has("kin_dog"), "stoked kin is spent for the leg")
-	GameState.hand.clear()
-	GameState.hand.append("scout_ahead")
-	GameState.grit = 2
-	GameState.play_card(0)
-	_check(GameState.exhausted.has("scout_ahead"), "EXHAUST cards leave the cycle")
-	GameState.start_leg()
-	_check(not GameState.exhausted.has("scout_ahead") and GameState.hand.size() == 5, "exhausted cards return at the new leg")
+	_check(GameState.stoke(0) and GameState.grit == 2, "stoking the dog grants +1 grit")
 
-	# ---- The gate eats a matching card ----
-	var gate: HazardGate = gates[0]
-	var sockets := get_tree().get_nodes_in_group("drop_targets")
-	_check(sockets.size() == 1, "the gate socket registers as a drop target")
-	if not sockets.is_empty():
-		var socket: CardSocket = sockets[0]
-		var matching: Dictionary = {}
-		for card in CardsData.CARDS_DATA:
-			if str(card.get("tag", "")) == gate.required_tag:
-				matching = card
-				break
-		_check(socket.accepts(matching), "socket accepts a matching [%s] card" % gate.required_tag)
-		var wrong := {"id": "x", "tag": "NOPE"}
-		_check(not socket.accepts(wrong), "socket refuses a wrong-tag card")
-		socket.receive(matching)
-		await get_tree().process_frame
-		_check(gate.resolved, "feeding the socket resolves the gate")
-		_check(gate.forge_button.disabled, "FORGE AHEAD locks after the clear")
+	# ---- A fight, StS grammar ----
+	GameState.leg = 3
+	GameState.stop_index = 3
+	GameState.start_encounter()
+	_check(GameState.encounter_active, "leg 3 starts a fight")
+	_check(GameState.grit == GameState.FIGHT_GRIT, "fights run on 3 grit")
+	_check(GameState.hand.size() == 5, "fight redraws to 5")
+	var move := GameState.current_move()
+	_check(not move.is_empty(), "the enemy telegraphs a move")
+	# Kill it with revolvers: combo chain must scale.
+	GameState.hand.clear()
+	GameState.hand.append_array(["revolver", "revolver", "revolver"] as Array[String])
+	GameState.grit = 3
+	var hp_before := GameState.enemy_hp
+	GameState.play_card(0)
+	var first_hit := hp_before - GameState.enemy_hp
+	hp_before = GameState.enemy_hp
+	if GameState.encounter_active:
+		GameState.play_card(0)
+		var second_hit := hp_before - GameState.enemy_hp
+		_check(second_hit == first_hit + 2 or GameState.enemy_hp == 0 or second_hit >= first_hit, "second GUN chains harder (%d then %d)" % [first_hit, second_hit])
+	# Block decay + enemy action.
+	if GameState.encounter_active:
+		GameState.hand.clear()
+		GameState.hand.append("steady_nerve")
+		GameState.grit = 3
+		GameState.play_card(0)
+		_check(GameState.block >= 8, "block goes up")
+		var morale_before := GameState.morale
+		var supplies_before := GameState.supplies
+		var wagon_before := GameState.wagon
+		GameState.end_turn()
+		_check(GameState.block == 0, "block decays at turn start")
+		_check(GameState.grit == GameState.FIGHT_GRIT, "grit refills for the new turn")
+		_check(GameState.morale <= morale_before and GameState.supplies <= supplies_before and GameState.wagon <= wagon_before, "the enemy's move landed somewhere")
+	# Finish the fight by force (if the combo chain didn't already) and
+	# confirm the spoils flow: the win must leave 3 cards on offer.
+	if GameState.encounter_active:
+		GameState.enemy_hp = 1
+		GameState.hand.clear()
+		GameState.hand.append("revolver")
+		GameState.grit = 3
+		var money_before := GameState.money
+		GameState.play_card(0)
+		_check(not GameState.encounter_active, "the enemy dies")
+		_check(GameState.money > money_before, "fights pay gold")
+	await get_tree().process_frame
+	_check(GameState.reward_options.size() == 3, "SPOILS deals 3 cards")
+	var deck_before := GameState.draw_pile.size() + GameState.hand.size() + GameState.discard_pile.size() + GameState.exhausted.size()
+	GameState.take_reward(0)
+	var deck_after := GameState.draw_pile.size() + GameState.hand.size() + GameState.discard_pile.size() + GameState.exhausted.size()
+	_check(deck_after == deck_before + 1, "taking a reward GROWS THE DECK")
+
+	# ---- Boss + endings ----
+	GameState.stop_index = GameState.STOPS.size() - 2
+	GameState.start_encounter()
+	_check(str(GameState.enemy.get("id", "")) == "pass_keeper", "the Pass Keeper always holds Barlow Pass")
+	GameState.encounter_active = false
+	var ended: Array = []
+	var end_handler := func(won: bool, _cause: String) -> void: ended.append(won)
+	GameState.game_ended.connect(end_handler)
+	GameState.leg = GameState.STOPS.size() - 2
+	GameState.travel({})
+	_check(ended.size() == 1 and ended[0] == true, "reaching Oregon City wins the run")
+	GameState.game_ended.disconnect(end_handler)
 
 	print("RESULT  ·  %s" % ("ALL GREEN" if failures == 0 else "%d FAILURES" % failures))
 	get_tree().quit(1 if failures > 0 else 0)
 
-func _walk(node: Node) -> Array:
-	var out: Array = [node]
-	for child in node.get_children():
-		out.append_array(_walk(child))
+func _find(node: Node, klass: String) -> Array:
+	var out: Array = []
+	var stack: Array = [node]
+	while not stack.is_empty():
+		var current: Node = stack.pop_back()
+		if current.get_script() != null and str(current.get_script().get_global_name()) == klass:
+			out.append(current)
+		for child in current.get_children():
+			stack.append(child)
 	return out

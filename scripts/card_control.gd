@@ -14,6 +14,9 @@ const SPRING_TIME := 0.28
 
 @export var card_data: Dictionary = {}
 @export var hand_index := 0
+# In fights there is no socket — the enemy is the only target, so releasing
+# a drag anywhere above the hand plays the card (StS behavior).
+@export var loose_play := false
 
 var home_position := Vector2.ZERO   # hand slot the spring returns to
 var home_rotation := 0.0
@@ -83,6 +86,9 @@ func _end_drag(at: Vector2) -> void:
 			target.receive(card_data)
 		card_played.emit(card_data)
 		trigger_juice.emit(4.0, "stamp")
+	elif loose_play and at.y < home_position.y + get_parent_control().global_position.y - 40.0:
+		card_played.emit(card_data)
+		trigger_juice.emit(3.0, "card-play")
 	else:
 		_spring_home()
 

@@ -84,6 +84,53 @@ const CARDS_DATA: Array = [
 		"mech": {"exhaust": true, "cure": 1}
 	},
 
+	# ---- Reward-pool cards: what the deck BUILDS toward ----
+	{
+		"id": "rifle", "title": "WINCHESTER RIFLE", "cost": 1, "tag": "GUN",
+		"rules_text": "DEAL 10 (+3 PER [GUN] PLAYED).",
+		"art": "res://assets/art/rifle-winchester-ad.jpg",
+		"mech": {"deal": 10, "combo": {"per_tag": "GUN", "bonus_deal": 3}}
+	},
+	{
+		"id": "scattergun", "title": "SCATTERGUN", "cost": 1, "tag": "GUN",
+		"rules_text": "WAGER 1d6 → DEAL 3×ROLL.",
+		"art": "res://assets/art/revolver-patent.jpg",
+		"mech": {"wager": {"per_pip": {"deal": 3}}}
+	},
+	{
+		"id": "steady_nerve", "title": "STEADY NERVE", "cost": 1, "tag": "FIRE",
+		"rules_text": "BLOCK 8. DRAW 1.",
+		"art": "res://assets/art/grizzly-vs-bison.png",
+		"mech": {"block": 8, "draw": 1}
+	},
+	{
+		"id": "laudanum", "title": "LAUDANUM", "cost": 1, "tag": "CARE",
+		"rules_text": "BLOCK 6. EXHAUST: CURE 1 [KIN].",
+		"art": "res://assets/art/whiskey-ad.png",
+		"mech": {"exhaust": true, "block": 6, "cure": 1}
+	},
+	{
+		"id": "trail_map", "title": "TRAIL MAP", "cost": 0, "tag": "TRAIL",
+		"rules_text": "EXHAUST: NEXT LEG -1 DAY.",
+		"art": "res://assets/art/compass.jpg",
+		"mech": {"exhaust": true, "travel_bonus": 1}
+	},
+
+	# ---- Statuses: junk the trail shoves into the deck. Unplayable; they
+	# ---- bite when drawn and burn off when the wagon rolls out.
+	{
+		"id": "dust_inhalation", "title": "DUST INHALATION", "cost": 0, "tag": "",
+		"rules_text": "UNPLAYABLE. DRAWN: -1 GRIT.",
+		"art": "res://assets/art/prairie-fire.jpg",
+		"status": true, "mech": {}, "on_draw": {"grit": -1}
+	},
+	{
+		"id": "broken_axle", "title": "BROKEN AXLE", "cost": 0, "tag": "",
+		"rules_text": "UNPLAYABLE. DRAWN: LOSES 2 CARDS.",
+		"art": "res://assets/art/scene/event-breakdown.png",
+		"status": true, "mech": {}, "on_draw": {"exhaust_random": 2}
+	},
+
 	# ---- The family: permanent KIN. Right-click = STOKE (+1 grit, +1 draw,
 	# ---- spent for the leg, night sickness risk). That IS their economy.
 	{
@@ -123,6 +170,12 @@ const STARTER_DECK := [
 	"mend_wheel", "scout_ahead", "trail_rations", "trail_rations",
 	"revolver", "lasso", "bowie_knife", "dynamite",
 	"kin_pa", "kin_ma", "kin_sarah", "kin_dog", "kin_ox"
+]
+
+# What the SPOILS screen deals from — the deck-building menu.
+const REWARD_POOL := [
+	"rifle", "scattergun", "steady_nerve", "laudanum", "trail_map",
+	"revolver", "forage", "hunt", "medicine", "campfire_stories", "mend_wheel"
 ]
 
 static func by_id(card_id: String) -> Dictionary:
