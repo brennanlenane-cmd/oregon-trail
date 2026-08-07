@@ -485,6 +485,9 @@ var stage_block_label: Label
 var stage_hold := false            # keeps the stage up long enough to watch a death
 var last_hand_signature := ""      # rebuild the fan only when the hand truly changes
 var hand_slots: Array[Control] = []  # stationary hitboxes; the card visuals animate inside them
+# Cosmetic dice only — stamps and chips get hand-placed tilts from here so
+# the seeded gameplay RNG sequence is never disturbed by UI rebuilds.
+var ui_rng := RandomNumberGenerator.new()
 var hand_raised := true            # the hand is a drawer: down unless fighting or reached for
 var hand_hover_count := 0
 var hand_pinned := false           # the OPEN HAND tab holds the drawer up until clicked again
@@ -522,6 +525,9 @@ var font_body: SystemFont
 func _load_fonts() -> void:
 	font_display = SystemFont.new()
 	font_display.font_names = PackedStringArray(["Playbill", "Rockwell", "Georgia"])
+	# Tried AA-off for hard print edges — it shreds Playbill below ~20px into
+	# illegible mush. Antialiasing stays; crispness comes from pixel snap only.
+	font_display.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_DISABLED
 	font_body = SystemFont.new()
 	font_body.font_names = PackedStringArray(["Bookman Old Style", "Palatino Linotype", "Georgia"])
 
@@ -738,6 +744,7 @@ func _fit_ui_to_viewport() -> void:
 						heading.add_theme_font_size_override("font_size", 34)
 
 func _ready() -> void:
+	ui_rng.randomize()
 	_load_fonts()
 	var ui_theme := Theme.new()
 	ui_theme.default_font = font_body
@@ -1275,7 +1282,9 @@ func _make_style(bg: Color, border: Color, radius: int = 12, width: int = 1) -> 
 	style.bg_color = _themed_surface(bg)
 	style.border_color = Color(_themed_line(border), 0.72)
 	style.set_border_width_all(1 if width <= 1 else 2)
-	style.set_corner_radius_all(mini(radius, 32))
+	# Hand-trimmed paper and letterpress blocks have square corners; only
+	# true cards (radius <= 4, like poker stock) keep a gentle round.
+	style.set_corner_radius_all(radius if radius <= 4 else (0 if UI_DARK else mini(radius, 8)))
 	style.content_margin_left = 18.0
 	style.content_margin_right = 18.0
 	style.content_margin_top = 14.0
@@ -1292,7 +1301,7 @@ func _parchment_style(radius: int = 8) -> StyleBoxFlat:
 	style.bg_color = PARCHMENT
 	style.border_color = Color("#30251b", 0.5)
 	style.set_border_width_all(1)
-	style.set_corner_radius_all(radius)
+	style.set_corner_radius_all(0)
 	style.shadow_color = Color(0, 0, 0, 0.4)
 	style.shadow_size = 14
 	style.shadow_offset = Vector2(0, 4)
@@ -1648,7 +1657,8 @@ func _build_camp_overlay() -> void:
 		tag_portrait.custom_minimum_size = Vector2(0, 92)
 		tag_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		tag_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		var tag_portrait_path := "res://assets/art/portraits/%s.png" % member_id
+		tag_portrait.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		var tag_portrait_path := "res://assets/sprites/family/%s.png" % member_id
 		if ResourceLoader.exists(tag_portrait_path):
 			tag_portrait.texture = load(tag_portrait_path) as Texture2D
 		slot.add_child(tag_portrait)
@@ -2006,6 +2016,16 @@ func _build_map_first_ui() -> void:
 		map_table.add_theme_stylebox_override("panel", _parchment_style(14))
 		add_child(map_table)
 		map_table_panel = map_table
+		# Real paper has tooth: a tiled grain multiplied into the parchment.
+		if ResourceLoader.exists("res://assets/art/grain.png"):
+			var grain := TextureRect.new()
+			grain.texture = load("res://assets/art/grain.png") as Texture2D
+			grain.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			grain.stretch_mode = TextureRect.STRETCH_TILE
+			grain.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+			grain.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			_print_onto_paper(grain)
+			map_table.add_child(grain)
 	# ---- The viewport tree (Slay-the-Spire rule: one view at a time) ----
 	# Full-rect wrappers keep every child's anchors unchanged while giving
 	# each zone a single switch: MapView XOR EncounterView, HUD over both,
@@ -2083,6 +2103,8 @@ func _build_map_first_ui() -> void:
 	map_canvas.offset_top = 0.0
 	map_canvas.offset_bottom = 0.0
 	map_canvas.clip_contents = true
+	# Integer-crisp pixels for the marching pieces the canvas draws itself.
+	map_canvas.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	map_view.add_child(map_canvas)
 	map_canvas.stop_names.assign(ROUTE_STOPS)
 	map_canvas.label_font = font_display
@@ -2115,7 +2137,7 @@ func _build_map_first_ui() -> void:
 	ribbon_style.border_color = _themed_line(Color("#30251b"))
 	ribbon_style.border_width_top = 1
 	ribbon_style.border_width_bottom = 2
-	ribbon_style.set_corner_radius_all(12 if UI_DARK else 0)
+	ribbon_style.set_corner_radius_all(0)
 	ribbon_style.content_margin_left = 20.0
 	ribbon_style.content_margin_right = 20.0
 	ribbon_style.content_margin_top = 7.0
@@ -3346,6 +3368,8 @@ func _make_card_button(card_id: String, index: int) -> PanelContainer:
 	cost_label.add_theme_font_override("font", font_display)
 	cost_label.add_theme_font_size_override("font_size", 15)
 	cost_stamp.add_child(cost_label)
+	# No press hits the paper perfectly square — every stamp lands a little off.
+	cost_stamp.rotation_degrees = ui_rng.randf_range(-2.0, 2.0)
 	title_row.add_child(cost_stamp)
 	panel.set_meta("cost_label", cost_label)
 	var art_path := str(card.get("art", ""))
@@ -4835,6 +4859,7 @@ func _refresh_trinket_strip() -> void:
 		chip.add_theme_stylebox_override("panel", _make_style(Color("#f2e6c2"), Color("#a02818"), 6, 1))
 		var chip_label := _label("%s %s" % [info["glyph"], str(info["name"]).to_upper()], 9, Color("#221c14"))
 		chip.add_child(chip_label)
+		chip.rotation_degrees = ui_rng.randf_range(-1.5, 1.5)
 		keepsake_box.add_child(chip)
 	for i in tonic_slots.size():
 		if i < tonics.size():

@@ -131,91 +131,91 @@ const CARDS := {
 	# ---- they can never leave the deck, they talk, they bond, they can die.
 	"family_pa": {
 		"name": "{name}'s Steady Hands", "cost": 1, "type": "supply", "role": "father", "rarity": "family", "tags": ["kin"],
-		"family": "pa", "art": "res://assets/art/portraits/pa.png",
+		"family": "pa", "art": "res://assets/sprites/family/pa.png",
 		"text": "Choose: gain 5 supplies, or repair the wagon by 5.",
 		"fx": {"pa_choice": 5}
 	},
 	"family_pa_u": {
 		"name": "{name}'s Steady Hands+", "cost": 1, "type": "supply", "role": "father", "rarity": "family", "tags": ["kin"],
-		"family": "pa", "art": "res://assets/art/portraits/pa.png",
+		"family": "pa", "art": "res://assets/sprites/family/pa.png",
 		"text": "Choose: gain 7 supplies, or repair the wagon by 7.",
 		"fx": {"pa_choice": 7}
 	},
 	"family_pa_u2": {
 		"name": "{name}'s Steady Hands++", "cost": 1, "type": "supply", "role": "father", "rarity": "family", "tags": ["kin"],
-		"family": "pa", "art": "res://assets/art/portraits/pa.png",
+		"family": "pa", "art": "res://assets/sprites/family/pa.png",
 		"text": "Choose: gain 7 supplies, or repair the wagon by 7. Draw 1.",
 		"fx": {"pa_choice": 7, "draw": 1}
 	},
 	"family_ma": {
 		"name": "{name}'s Resolve", "cost": 1, "type": "morale", "role": "mother", "rarity": "family", "tags": ["kin"],
-		"family": "ma", "art": "res://assets/art/portraits/ma.png",
+		"family": "ma", "art": "res://assets/sprites/family/ma.png",
 		"text": "Gain 6 morale. If morale is below 30, gain 10 instead.",
 		"fx": {"morale_resolve": 6, "resolve_low_bonus": 4}
 	},
 	"family_ma_u": {
 		"name": "{name}'s Resolve+", "cost": 1, "type": "morale", "role": "mother", "rarity": "family", "tags": ["kin"],
-		"family": "ma", "art": "res://assets/art/portraits/ma.png",
+		"family": "ma", "art": "res://assets/sprites/family/ma.png",
 		"text": "Gain 8 morale. If morale is below 30, gain 13 instead.",
 		"fx": {"morale_resolve": 8, "resolve_low_bonus": 5}
 	},
 	"family_ma_u2": {
 		"name": "{name}'s Resolve++", "cost": 1, "type": "morale", "role": "mother", "rarity": "family", "tags": ["kin"],
-		"family": "ma", "art": "res://assets/art/portraits/ma.png",
+		"family": "ma", "art": "res://assets/sprites/family/ma.png",
 		"text": "Gain 8 morale. If morale is below 30, gain 13 instead. Draw 1.",
 		"fx": {"morale_resolve": 8, "resolve_low_bonus": 5, "draw": 1}
 	},
 	"family_sarah": {
 		"name": "{name}'s Keen Eyes", "cost": 0, "type": "scout", "role": "kid", "rarity": "family", "tags": ["kin"],
-		"family": "sarah", "art": "res://assets/art/portraits/sarah.png",
+		"family": "sarah", "art": "res://assets/sprites/family/sarah.png",
 		"text": "Draw 1. {name} reveals what the next trail event asks for.",
 		"fx": {"draw": 1, "reveal": 1}
 	},
 	"family_sarah_u": {
 		"name": "{name}'s Keen Eyes+", "cost": 0, "type": "scout", "role": "kid", "rarity": "family", "tags": ["kin"],
-		"family": "sarah", "art": "res://assets/art/portraits/sarah.png",
+		"family": "sarah", "art": "res://assets/sprites/family/sarah.png",
 		"text": "Draw 2. {name} reveals what the next trail event asks for.",
 		"fx": {"draw": 2, "reveal": 1}
 	},
 	"family_sarah_u2": {
 		"name": "{name}'s Keen Eyes++", "cost": 0, "type": "scout", "role": "kid", "rarity": "family", "tags": ["kin"],
-		"family": "sarah", "art": "res://assets/art/portraits/sarah.png",
+		"family": "sarah", "art": "res://assets/sprites/family/sarah.png",
 		"text": "Draw 2, gain 2 morale. {name} reveals the next event's ask.",
 		"fx": {"draw": 2, "reveal": 1, "morale": 2}
 	},
 	"family_dog": {
 		"name": "{name}", "cost": 0, "type": "morale", "role": "good dog", "rarity": "family", "tags": ["kin"],
-		"family": "dog", "art": "res://assets/art/portraits/dog.png",
+		"family": "dog", "art": "res://assets/sprites/family/dog.png",
 		"text": "Gain 2 morale. In a fight: the next hit lands 2 lighter.",
 		"fx": {"morale": 2, "threat": -2}
 	},
 	"family_dog_u": {
 		"name": "{name}+", "cost": 0, "type": "morale", "role": "good dog", "rarity": "family", "tags": ["kin"],
-		"family": "dog", "art": "res://assets/art/portraits/dog.png",
+		"family": "dog", "art": "res://assets/sprites/family/dog.png",
 		"text": "Gain 3 morale. In a fight: the next hit lands 3 lighter.",
 		"fx": {"morale": 3, "threat": -3}
 	},
 	"family_dog_u2": {
 		"name": "{name}++", "cost": 0, "type": "morale", "role": "good dog", "rarity": "family", "tags": ["kin"],
-		"family": "dog", "art": "res://assets/art/portraits/dog.png",
+		"family": "dog", "art": "res://assets/sprites/family/dog.png",
 		"text": "Gain 3 morale, draw 1. In a fight: the next hit lands 3 lighter.",
 		"fx": {"morale": 3, "threat": -3, "draw": 1}
 	},
 	"family_ox": {
 		"name": "{name}", "cost": 2, "type": "supply", "role": "the ox", "rarity": "family", "tags": ["kin"],
-		"family": "ox", "art": "res://assets/art/portraits/ox.png",
+		"family": "ox", "art": "res://assets/sprites/family/ox.png",
 		"text": "The next leg of travel takes 1 fewer day.",
 		"fx": {"travel_bonus": 1}
 	},
 	"family_ox_u": {
 		"name": "{name}+", "cost": 1, "type": "supply", "role": "the ox", "rarity": "family", "tags": ["kin"],
-		"family": "ox", "art": "res://assets/art/portraits/ox.png",
+		"family": "ox", "art": "res://assets/sprites/family/ox.png",
 		"text": "The next leg of travel takes 1 fewer day.",
 		"fx": {"travel_bonus": 1}
 	},
 	"family_ox_u2": {
 		"name": "{name}++", "cost": 1, "type": "supply", "role": "the ox", "rarity": "family", "tags": ["kin"],
-		"family": "ox", "art": "res://assets/art/portraits/ox.png",
+		"family": "ox", "art": "res://assets/sprites/family/ox.png",
 		"text": "The next leg takes 1 fewer day. Forage 2 supplies on the move.",
 		"fx": {"travel_bonus": 1, "supplies": 2}
 	},
