@@ -2483,7 +2483,22 @@ func _build_map_first_ui() -> void:
 	map_event_sheet.offset_top = 0.0
 	map_event_sheet.offset_bottom = 0.0
 	# The broadsheet: cream paper, ink-black type, red stamps — the letterpress look.
-	map_event_sheet.add_theme_stylebox_override("panel", _make_style(Color(0.93, 0.89, 0.78, 0.97), Color("#30251b"), 6, 2))
+	# The sheet is a PAPER MANIFEST pinned to the dark table, not another
+	# charcoal app panel — built directly so the dark-theme mapper can't
+	# repaint it. (Gemini's verdict: the grey box was the ugliest thing left.)
+	var manifest_style := StyleBoxFlat.new()
+	manifest_style.bg_color = Color("#e7dcbd")
+	manifest_style.border_color = Color("#2b231d")
+	manifest_style.set_border_width_all(2)
+	manifest_style.set_corner_radius_all(0)
+	manifest_style.shadow_color = Color(0, 0, 0, 0.55)
+	manifest_style.shadow_size = 14
+	manifest_style.shadow_offset = Vector2(0, 5)
+	manifest_style.content_margin_left = 18.0
+	manifest_style.content_margin_right = 18.0
+	manifest_style.content_margin_top = 14.0
+	manifest_style.content_margin_bottom = 14.0
+	map_event_sheet.add_theme_stylebox_override("panel", manifest_style)
 	# The card drop target: the whole table accepts a dragged card during an
 	# event or a fight. It sits UNDER the sheet so buttons stay clickable.
 	var drop_zone := Control.new()
@@ -2523,22 +2538,28 @@ func _build_map_first_ui() -> void:
 	event_body = _label("Play cards in the hand, then travel to reveal the road's choice.", 12, Color("#4b3d2a"))
 	event_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	event_box.add_child(event_body)
+	# Ink on paper: these sit on the manifest, so they bypass the dark-theme
+	# text mapper and print in iron-gall ink.
+	event_title.add_theme_color_override("font_color", Color("#221c14"))
+	event_body.add_theme_color_override("font_color", Color("#4b3d2a"))
 	# Event art hangs in the dark sheet like a painting: heavy dark-iron
 	# outer frame, thin brass inner rule, parchment behind the engraving.
 	# The feathered plate art melts into the parchment inside the frame.
 	encounter_art_plate = PanelContainer.new()
+	# A printed plate on the manifest paper — thin ink rule, faint lift.
+	# The heavy iron gallery frame died with the charcoal sheet.
 	var iron_frame := StyleBoxFlat.new()
-	iron_frame.bg_color = Color("#241c12")
-	iron_frame.border_color = Color("#0e0b08")
-	iron_frame.set_border_width_all(3)
-	iron_frame.set_corner_radius_all(3)
+	iron_frame.bg_color = Color("#efe6cd")
+	iron_frame.border_color = Color("#2b231d")
+	iron_frame.set_border_width_all(2)
+	iron_frame.set_corner_radius_all(0)
 	iron_frame.content_margin_left = 5.0
 	iron_frame.content_margin_right = 5.0
 	iron_frame.content_margin_top = 5.0
 	iron_frame.content_margin_bottom = 5.0
-	iron_frame.shadow_color = Color(0, 0, 0, 0.5)
-	iron_frame.shadow_size = 12
-	iron_frame.shadow_offset = Vector2(0, 4)
+	iron_frame.shadow_color = Color(0, 0, 0, 0.25)
+	iron_frame.shadow_size = 4
+	iron_frame.shadow_offset = Vector2(0, 2)
 	encounter_art_plate.add_theme_stylebox_override("panel", iron_frame)
 	encounter_art_plate.visible = false
 	event_box.add_child(encounter_art_plate)
@@ -2564,18 +2585,25 @@ func _build_map_first_ui() -> void:
 	# THE HAZARD GATE: instead of prose, the event is a slot demanding a card.
 	# Drop (or click) a matching card into the socket to clear the hazard;
 	# the terms hang beside it like a price tag.
-	hazard_row = HBoxContainer.new()
-	hazard_row.add_theme_constant_override("separation", 14)
-	hazard_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	hazard_row.visible = false
-	event_box.add_child(hazard_row)
+	# The socket hangs half over the painting's bottom edge like a cut-out in
+	# the scene itself — the obstacle asks for a card from INSIDE the picture.
+	var plate_overlay := Control.new()
+	plate_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	encounter_art_plate.add_child(plate_overlay)
 	hazard_slot = PanelContainer.new()
-	hazard_slot.custom_minimum_size = Vector2(112, 92)
+	hazard_slot.anchor_left = 0.5
+	hazard_slot.anchor_right = 0.5
+	hazard_slot.anchor_top = 1.0
+	hazard_slot.anchor_bottom = 1.0
+	hazard_slot.offset_left = -62.0
+	hazard_slot.offset_right = 62.0
+	hazard_slot.offset_top = -58.0
+	hazard_slot.offset_bottom = 30.0
 	var socket_style := StyleBoxFlat.new()
-	socket_style.bg_color = Color(0.93, 0.88, 0.76, 0.10)
+	socket_style.bg_color = Color(0.12, 0.09, 0.06, 0.55)
 	socket_style.border_color = Color("#b18a45")
 	socket_style.set_border_width_all(2)
-	socket_style.set_corner_radius_all(4)
+	socket_style.set_corner_radius_all(0)
 	socket_style.content_margin_left = 8.0
 	socket_style.content_margin_right = 8.0
 	socket_style.content_margin_top = 8.0
@@ -2585,18 +2613,27 @@ func _build_map_first_ui() -> void:
 	hazard_slot.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	hazard_slot.set_drag_forwarding(Callable(), _zone_can_drop, _zone_drop)
 	hazard_slot.gui_input.connect(_on_hazard_slot_input)
-	hazard_row.add_child(hazard_slot)
+	plate_overlay.add_child(hazard_slot)
 	var socket_box := VBoxContainer.new()
 	socket_box.alignment = BoxContainer.ALIGNMENT_CENTER
 	hazard_slot.add_child(socket_box)
-	hazard_slot_label = _label("SCOUT", 20, Color("#a02818"))
+	hazard_slot_label = _label("SCOUT", 20, Color("#f0d9a8"))
 	hazard_slot_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	socket_box.add_child(hazard_slot_label)
-	hazard_slot_sub = _label("DROP CARD", 9, Color("#8a7a5c"))
+	hazard_slot_sub = _label("DROP CARD", 9, Color("#c9b98e"))
 	hazard_slot_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hazard_slot_sub.add_theme_color_override("font_color", Color("#c9b98e"))
 	socket_box.add_child(hazard_slot_sub)
+	# The price tag prints under the plate, centered on the manifest.
+	hazard_row = HBoxContainer.new()
+	hazard_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	hazard_row.visible = false
+	event_box.add_child(hazard_row)
 	hazard_pay_label = _label("→  +6 SUPPLIES", 15, Color("#1f5c33"))
-	hazard_pay_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	hazard_pay_label.add_theme_color_override("font_color", Color("#1f5c33"))
+	# Tall enough to clear the socket hanging 30px over the plate's edge.
+	hazard_pay_label.custom_minimum_size = Vector2(0, 46)
+	hazard_pay_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	hazard_row.add_child(hazard_pay_label)
 	encounter_health_label = _label("", 11, Color("#6b3a1e"))
 	encounter_health_label.visible = false
@@ -2610,6 +2647,7 @@ func _build_map_first_ui() -> void:
 	event_box.add_child(encounter_stake_label)
 	outcome_label = _label("", 11, Color("#1f5c33"))
 	outcome_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	outcome_label.add_theme_color_override("font_color", Color("#1f5c33"))
 	event_box.add_child(outcome_label)
 	choice_a = _make_choice_button("A  ·  Card branch")
 	choice_a.name = "EventChoiceA"
@@ -2621,6 +2659,7 @@ func _build_map_first_ui() -> void:
 	event_box.add_child(choice_b)
 	event_hint = _label("The map keeps the journey in view while the next decision is disclosed.", 10, Color("#6b5b41"))
 	event_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	event_hint.add_theme_color_override("font_color", Color("#6b5b41"))
 	event_box.add_child(event_hint)
 	reward_box = VBoxContainer.new()
 	reward_box.name = "RewardChoices"
@@ -2660,6 +2699,27 @@ func _build_map_first_ui() -> void:
 	clear_stamp.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	clear_stamp.visible = false
 	map_event_sheet.add_child(clear_stamp)
+	# Brass tacks pin the manifest to the table — one in each corner.
+	var tack_layer := Control.new()
+	tack_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	map_event_sheet.add_child(tack_layer)
+	for corner: Vector2 in [Vector2(0, 0), Vector2(1, 0), Vector2(0, 1), Vector2(1, 1)]:
+		var tack := PanelContainer.new()
+		var tack_style := StyleBoxFlat.new()
+		tack_style.bg_color = Color("#a8823f")
+		tack_style.border_color = Color("#57431f")
+		tack_style.set_border_width_all(1)
+		tack_style.set_corner_radius_all(6)
+		tack.add_theme_stylebox_override("panel", tack_style)
+		tack.anchor_left = corner.x
+		tack.anchor_right = corner.x
+		tack.anchor_top = corner.y
+		tack.anchor_bottom = corner.y
+		tack.offset_left = -16.0 if corner.x > 0.5 else 5.0
+		tack.offset_right = -5.0 if corner.x > 0.5 else 16.0
+		tack.offset_top = -16.0 if corner.y > 0.5 else 5.0
+		tack.offset_bottom = -5.0 if corner.y > 0.5 else 16.0
+		tack_layer.add_child(tack)
 
 	var hand_panel := PanelContainer.new()
 	hand_panel.name = "PhysicalHandOverlay"
@@ -5420,6 +5480,13 @@ func _hide_encounter_ui() -> void:
 	encounter_stake_label.visible = false
 	if hazard_row != null:
 		hazard_row.visible = false
+	if hazard_slot != null:
+		hazard_slot.visible = false
+		if hazard_slot.has_meta("pulse"):
+			var pulse: Tween = hazard_slot.get_meta("pulse")
+			if pulse != null and pulse.is_valid():
+				pulse.kill()
+			hazard_slot.scale = Vector2.ONE
 
 func _event_idle_ui() -> void:
 	_hide_encounter_ui()
@@ -5498,13 +5565,26 @@ func _event_active_ui() -> void:
 	var holding := _find_card_in_hand(event["card_type"]) >= 0
 	if hazard_row != null:
 		hazard_row.visible = true
+		hazard_slot.visible = true
 		hazard_slot_label.text = str(event["card_type"]).to_upper()
 		hazard_slot_sub.text = "DROP CARD" if holding else "NONE IN HAND"
 		hazard_pay_label.text = "→  %s" % str(event.get("pay", ""))
 		var socket := hazard_slot.get_theme_stylebox("panel") as StyleBoxFlat
 		if socket != null:
-			socket.border_color = Color("#a02818") if holding else Color(0.55, 0.47, 0.33, 0.5)
-		hazard_slot_label.add_theme_color_override("font_color", Color("#a02818") if holding else Color(0.42, 0.36, 0.28))
+			socket.border_color = Color("#a02818") if holding else Color(0.4, 0.34, 0.25, 0.6)
+		hazard_slot_label.add_theme_color_override("font_color", Color("#f0d9a8") if holding else Color(0.49, 0.44, 0.36))
+		# A payable socket breathes — the obstacle is asking, not decorating.
+		if hazard_slot.has_meta("pulse"):
+			var old_pulse: Tween = hazard_slot.get_meta("pulse")
+			if old_pulse != null and old_pulse.is_valid():
+				old_pulse.kill()
+		hazard_slot.scale = Vector2.ONE
+		if holding:
+			hazard_slot.pivot_offset = hazard_slot.size / 2.0
+			var pulse := create_tween().set_loops()
+			pulse.tween_property(hazard_slot, "scale", Vector2(1.06, 1.06), 0.55).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+			pulse.tween_property(hazard_slot, "scale", Vector2.ONE, 0.55).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+			hazard_slot.set_meta("pulse", pulse)
 	event_hint.text = ""
 	continue_button.visible = false
 

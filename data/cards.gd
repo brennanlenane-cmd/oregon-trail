@@ -30,7 +30,7 @@ const CARDS := {
 	"campfire_stories": {
 		"name": "Campfire Stories", "cost": 0, "type": "morale", "rarity": "starter",
 		"art": "res://assets/art/campfire.jpg", "tags": ["fire"],
-		"text": "BURN 1 CARD: MORALE +4, +3 × ITS COST.",
+		"text": "FEED IT 1 CARD → MORALE +4 +3×COST.",
 		"fx": {},
 		"fuel": {"base_morale": 4, "per_cost": 3}
 	},
@@ -43,7 +43,7 @@ const CARDS := {
 	"trading_ledger": {
 		"name": "Trading Ledger", "cost": 2, "type": "supply", "rarity": "starter",
 		"art": "res://assets/art/whiskey-ad.png", "tags": ["goods"],
-		"text": "+8 SUPPLIES. +3 PER GOODS.",
+		"text": "+8 SUPPLIES (+3 PER GOODS PLAYED).",
 		"fx": {"supplies": 8},
 		"combo": {"per_tag": "goods", "bonus_supplies": 3}
 	},
@@ -79,7 +79,7 @@ const CARDS := {
 	},
 	"revolver": {
 		"name": "Revolver", "cost": 1, "type": "combat", "role": "attack", "rarity": "starter",
-		"text": "DEAL 7. +2 PER GUN.",
+		"text": "DEAL 7 (+2 PER GUN PLAYED).",
 		"art": "res://assets/art/revolver-patent.jpg", "tags": ["gun"],
 		"fx": {"enemy_damage": 7},
 		"combo": {"per_tag": "gun", "bonus_damage": 2}
@@ -93,7 +93,7 @@ const CARDS := {
 	},
 	"rifle": {
 		"name": "Winchester Rifle", "cost": 1, "type": "combat", "role": "attack", "rarity": "common",
-		"text": "DEAL 10. +3 PER GUN.",
+		"text": "DEAL 10 (+3 PER GUN PLAYED).",
 		"art": "res://assets/art/rifle-winchester-ad.jpg", "tags": ["gun"],
 		"fx": {"enemy_damage": 10},
 		"combo": {"per_tag": "gun", "bonus_damage": 3}
@@ -127,7 +127,7 @@ const CARDS := {
 	"scalpel": {
 		"name": "Scalpel", "cost": 1, "type": "combat", "role": "precision", "rarity": "doctor",
 		"art": "res://assets/art/medicine-ad.jpg", "tags": ["blade", "care"],
-		"text": "DEAL 6. +3 PER CARE.",
+		"text": "DEAL 6 (+3 PER CARE PLAYED).",
 		"fx": {"enemy_damage": 6},
 		"combo": {"per_tag": "care", "bonus_damage": 3}
 	},
@@ -206,19 +206,19 @@ const CARDS := {
 	"family_dog": {
 		"name": "{name}", "cost": 0, "type": "morale", "role": "good dog", "rarity": "family", "tags": ["kin"],
 		"family": "dog", "art": "res://assets/sprites/family/dog.png",
-		"text": "+2 MORALE. NEXT HIT -2.",
+		"text": "+2 MORALE. ENEMY HIT -2.",
 		"fx": {"morale": 2, "threat": -2}
 	},
 	"family_dog_u": {
 		"name": "{name}+", "cost": 0, "type": "morale", "role": "good dog", "rarity": "family", "tags": ["kin"],
 		"family": "dog", "art": "res://assets/sprites/family/dog.png",
-		"text": "+3 MORALE. NEXT HIT -3.",
+		"text": "+3 MORALE. ENEMY HIT -3.",
 		"fx": {"morale": 3, "threat": -3}
 	},
 	"family_dog_u2": {
 		"name": "{name}++", "cost": 0, "type": "morale", "role": "good dog", "rarity": "family", "tags": ["kin"],
 		"family": "dog", "art": "res://assets/sprites/family/dog.png",
-		"text": "+3 MORALE, DRAW 1. NEXT HIT -3.",
+		"text": "+3 MORALE, DRAW 1. ENEMY HIT -3.",
 		"fx": {"morale": 3, "threat": -3, "draw": 1}
 	},
 	"family_ox": {
