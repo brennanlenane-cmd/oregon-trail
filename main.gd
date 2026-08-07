@@ -27,6 +27,15 @@ class TrailMapCanvas extends Control:
 	]
 	var landmark_labels := ["CAMP", "TOWN", "FORT", "DANGER", "CAMP", "FORT", "DANGER", "TOWN", "DANGER", "DESTINATION", "OREGON"]
 	var label_font: Font
+	# The family, marching at the head of the red line — 16-bit pilgrims on a
+	# period map, like the journey scene in a picture show.
+	var march_textures: Array[Texture2D] = []
+	var march_phase := 0.0
+
+	func _process(delta: float) -> void:
+		if visible and not march_textures.is_empty():
+			march_phase += delta
+			queue_redraw()
 
 	# The drawn trail has 11 nodes standing in for 14 route stops.
 	func _node_index_for_stop(stop_index: int) -> int:
@@ -183,7 +192,32 @@ class TrailMapCanvas extends Control:
 				draw_string(font, point + Vector2(-name_width * 0.5, dy), stop_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, name_color)
 			if current:
 				draw_circle(point, 15.0, Color("#a02818"), false, 2.5)
+		_draw_march()
 		_draw_fork()
+
+	func _draw_march() -> void:
+		# The little column walks in place just behind the wagon's node,
+		# strung out along the trail they came in on, bobbing out of step.
+		if march_textures.is_empty():
+			return
+		var node := _current_node()
+		var head := Vector2(route_points[node].x * size.x, route_points[node].y * size.y)
+		# The column trails behind the wagon node — except at Independence,
+		# where behind is off the paper: there they string out AHEAD, setting out.
+		var back_direction: Vector2
+		if node > 0:
+			back_direction = (Vector2(route_points[node - 1].x * size.x, route_points[node - 1].y * size.y) - head).normalized()
+		else:
+			back_direction = (Vector2(route_points[1].x * size.x, route_points[1].y * size.y) - head).normalized()
+		for i in march_textures.size():
+			var sprite := march_textures[i]
+			if sprite == null:
+				continue
+			var sprite_h := 34.0
+			var sprite_w := sprite.get_width() * (sprite_h / sprite.get_height())
+			var spot := head + back_direction * (30.0 + float(i) * 21.0)
+			var bob := sin(march_phase * 7.0 + float(i) * 1.3) * 1.6
+			draw_texture_rect(sprite, Rect2(Vector2(spot.x - sprite_w * 0.5, spot.y - sprite_h + bob), Vector2(sprite_w, sprite_h)), false)
 
 	func _draw_fork() -> void:
 		_stamp_rects.clear()
@@ -1749,9 +1783,15 @@ func _build_map_first_ui() -> void:
 	map_canvas.anchor_bottom = 0.75
 	map_canvas.offset_top = 0.0
 	map_canvas.offset_bottom = 0.0
+	map_canvas.clip_contents = true
 	map_view.add_child(map_canvas)
 	map_canvas.stop_names.assign(ROUTE_STOPS)
 	map_canvas.label_font = font_display
+	# The 16-bit marching family (Summer-generated) — pa leads, ox brings up the rear.
+	for member_sprite in ["pa", "ma", "sarah", "dog", "ox"]:
+		var sprite_path := "res://assets/sprites/family/%s.png" % member_sprite
+		if ResourceLoader.exists(sprite_path):
+			map_canvas.march_textures.append(load(sprite_path) as Texture2D)
 	map_canvas.route_selected.connect(_on_route_selected)
 	map_canvas.road_selected.connect(_on_road_selected)
 
