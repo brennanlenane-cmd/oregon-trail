@@ -454,6 +454,8 @@ var enemy_plate: TextureRect
 var stage_hp_fill: ColorRect
 var stage_hp_bg: ColorRect
 var battle_backdrop: TextureRect
+var reward_overlay: Control
+var reward_card_row: HBoxContainer
 var stage_hp_label: Label
 var stage_intent_label: Label
 var stage_intent_banner: PanelContainer
@@ -743,6 +745,7 @@ func _ready() -> void:
 		title_continue_button.visible = FileAccess.file_exists(SAVE_PATH)
 	_refresh_trailblazer_ui()
 	_setup_audio()
+	_build_reward_overlay()
 	_refresh_ui()
 	_juice_all_buttons(self)
 	get_viewport().size_changed.connect(_fit_ui_to_viewport)
@@ -2927,6 +2930,52 @@ func _ledger_card(caption: String, value: String, color: Color, detail: String, 
 		stack.add_child(_label(detail, 8, Color("#6b5b41")))
 	return panel
 
+func _build_reward_overlay() -> void:
+	# Rewards are CARDS on the table, not text buttons — pick one up.
+	reward_overlay = Control.new()
+	reward_overlay.name = "RewardOverlay"
+	reward_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	reward_overlay.visible = false
+	add_child(reward_overlay)
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.6)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	reward_overlay.add_child(dim)
+	var stack := VBoxContainer.new()
+	stack.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	stack.anchor_left = 0.5
+	stack.anchor_right = 0.5
+	stack.anchor_top = 0.20
+	stack.anchor_bottom = 0.20
+	stack.offset_left = -300.0
+	stack.offset_right = 300.0
+	stack.add_theme_constant_override("separation", 18)
+	reward_overlay.add_child(stack)
+	var reward_title := _label("CHOOSE ONE REWARD", 30, Color("#e4bd65"))
+	reward_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	stack.add_child(reward_title)
+	reward_card_row = HBoxContainer.new()
+	reward_card_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	reward_card_row.add_theme_constant_override("separation", 22)
+	stack.add_child(reward_card_row)
+	var skip := Button.new()
+	skip.text = "LEAVE THEM  ·  POCKET $3"
+	skip.add_theme_font_override("font", font_display)
+	skip.add_theme_font_size_override("font_size", 15)
+	skip.add_theme_stylebox_override("normal", _make_style(Color("#e6d9ba"), Color("#30251b"), 2, 1))
+	skip.add_theme_color_override("font_color", _themed_text(Color("#221c14")))
+	skip.pressed.connect(_skip_reward)
+	var skip_row := HBoxContainer.new()
+	skip_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	skip_row.add_child(skip)
+	stack.add_child(skip_row)
+
+func _on_reward_face_input(event: InputEvent, index: int) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		_play_sfx("stamp")
+		_choose_reward(index)
+
 func _setup_audio() -> void:
 	var manifest := {
 		"theme": "res://assets/audio/theme.mp3",
@@ -3390,12 +3439,17 @@ func _plate_art(path: String) -> String:
 	return plate_path if ResourceLoader.exists(plate_path) else _ink_art(path)
 
 func _make_card_button(card_id: String, index: int) -> PanelContainer:
+	var panel := _make_card_face(card_id)
+	panel.name = "CardSlot%d" % index
+	card_buttons.append(panel)
+	return panel
+
+func _make_card_face(card_id: String) -> PanelContainer:
 	var card: Dictionary = CARDS[card_id]
 	var member_id := str(card.get("family", ""))
 	var is_memory: bool = card.get("memory", false)
 	var is_family: bool = member_id != "" and not is_memory
 	var panel := PanelContainer.new()
-	panel.name = "CardSlot%d" % index
 	panel.custom_minimum_size = Vector2(170, 240)
 	if is_memory:
 		panel.add_theme_stylebox_override("panel", _make_style(Color("#c9c2b2"), Color("#565046"), 4, 3))
@@ -3482,7 +3536,6 @@ func _make_card_button(card_id: String, index: int) -> PanelContainer:
 		box.add_child(tag_line)
 	# The visual never touches the mouse — the slot beneath it does.
 	_ignore_mouse_tree(panel)
-	card_buttons.append(panel)
 	return panel
 
 func _ignore_mouse_tree(node: Control) -> void:
@@ -4829,6 +4882,8 @@ func _refresh_ui() -> void:
 	# drone when it runs low.
 	if run_mode == "map":
 		_set_music("drone" if morale < 30 else "theme")
+	if reward_overlay != null:
+		reward_overlay.visible = reward_pending and run_mode == "map"
 	# --- UI phase state machine: travel / event / fight ------------------
 	# TRAVEL: the map IS the screen — the sheet slides off-stage right and
 	# the roads are the only call to action. EVENT: the sheet slides in and
@@ -5121,19 +5176,41 @@ func _event_reward_ui() -> void:
 	event_body.text = "The wagon reached %s. Add one card to the deck, or skip." % ROUTE_STOPS[route_index]
 	event_hint.text = "Three cards disclosed; the reward enters the draw pile."
 	continue_button.text = "REWARD PENDING"
+	continue_button.visible = false
 	for button in reward_buttons:
 		button.queue_free()
 	reward_buttons.clear()
-	for i in reward_options.size():
-		var card: Dictionary = CARDS[reward_options[i]]
-		var button := _make_choice_button("TAKE %s  ·  %s  ·  %dc\n%s" % [card["name"], card["rarity"].to_upper(), card["cost"], card["text"]])
-		button.pressed.connect(_choose_reward.bind(i))
-		reward_box.add_child(button)
-		reward_buttons.append(button)
-	var skip := _make_choice_button("SKIP REWARD  ·  Keep the deck lean")
-	skip.pressed.connect(_skip_reward)
-	reward_box.add_child(skip)
-	reward_buttons.append(skip)
+	# Rewards are dealt as CARD FACES on a dimmed table — the sheet's old
+	# text buttons are retired.
+	if reward_overlay != null and reward_card_row != null:
+		reward_box.visible = false
+		for child in reward_card_row.get_children():
+			child.queue_free()
+		for i in reward_options.size():
+			var slot := Control.new()
+			slot.custom_minimum_size = Vector2(172, 244)
+			slot.mouse_filter = Control.MOUSE_FILTER_STOP
+			var face := _make_card_face(reward_options[i])
+			face.set_meta("rest_r", 0.0)
+			face.set_meta("rest_z", 0)
+			slot.add_child(face)
+			slot.tooltip_text = "%s  ·  joins the draw pile" % str(CARDS[reward_options[i]]["rarity"]).to_upper()
+			slot.gui_input.connect(_on_reward_face_input.bind(i))
+			slot.mouse_entered.connect(_on_hand_card_hover.bind(face, true))
+			slot.mouse_exited.connect(_on_hand_card_hover.bind(face, false))
+			reward_card_row.add_child(slot)
+		reward_overlay.visible = true
+	else:
+		for i in reward_options.size():
+			var card: Dictionary = CARDS[reward_options[i]]
+			var button := _make_choice_button("TAKE %s  ·  %s  ·  %dc\n%s" % [card["name"], card["rarity"].to_upper(), card["cost"], card["text"]])
+			button.pressed.connect(_choose_reward.bind(i))
+			reward_box.add_child(button)
+			reward_buttons.append(button)
+		var skip := _make_choice_button("SKIP REWARD  ·  Keep the deck lean")
+		skip.pressed.connect(_skip_reward)
+		reward_box.add_child(skip)
+		reward_buttons.append(skip)
 
 func _event_end_ui() -> void:
 	_hide_encounter_ui()
