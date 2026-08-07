@@ -463,6 +463,13 @@ var hand_slots: Array[Control] = []  # stationary hitboxes; the card visuals ani
 # Cosmetic dice only — stamps and chips get hand-placed tilts from here so
 # the seeded gameplay RNG sequence is never disturbed by UI rebuilds.
 var ui_rng := RandomNumberGenerator.new()
+# ---- Audio: the trail finally makes a sound ----
+var music_player: AudioStreamPlayer
+var ambient_player: AudioStreamPlayer
+var sfx_players: Array[AudioStreamPlayer] = []
+var sfx_cursor := 0
+var audio_streams := {}
+var music_mode := ""
 var hand_raised := true            # the hand is a drawer: down unless fighting or reached for
 var hand_hover_count := 0
 var hand_pinned := false           # the OPEN HAND tab holds the drawer up until clicked again
@@ -734,6 +741,7 @@ func _ready() -> void:
 	if title_continue_button != null:
 		title_continue_button.visible = FileAccess.file_exists(SAVE_PATH)
 	_refresh_trailblazer_ui()
+	_setup_audio()
 	_refresh_ui()
 	_juice_all_buttons(self)
 	get_viewport().size_changed.connect(_fit_ui_to_viewport)
@@ -2918,6 +2926,57 @@ func _ledger_card(caption: String, value: String, color: Color, detail: String, 
 		stack.add_child(_label(detail, 8, Color("#6b5b41")))
 	return panel
 
+func _setup_audio() -> void:
+	var manifest := {
+		"theme": "res://assets/audio/theme.mp3",
+		"drone": "res://assets/audio/drone.mp3",
+		"ambient": "res://assets/audio/ambient.wav",
+		"card": "res://assets/audio/card-play.wav",
+		"gunshot": "res://assets/audio/gunshot.wav",
+		"click": "res://assets/audio/click.wav",
+		"hit": "res://assets/audio/hit.wav",
+		"growl": "res://assets/audio/growl.wav",
+		"stamp": "res://assets/audio/stamp.wav",
+		"roll": "res://assets/audio/wagon-roll.wav",
+	}
+	for key in manifest.keys():
+		if ResourceLoader.exists(str(manifest[key])):
+			audio_streams[key] = load(str(manifest[key]))
+	music_player = AudioStreamPlayer.new()
+	music_player.volume_db = -10.0
+	add_child(music_player)
+	music_player.finished.connect(func() -> void: music_player.play())
+	ambient_player = AudioStreamPlayer.new()
+	ambient_player.volume_db = -15.0
+	add_child(ambient_player)
+	ambient_player.finished.connect(func() -> void: ambient_player.play())
+	for i in range(4):
+		var voice := AudioStreamPlayer.new()
+		voice.volume_db = -6.0
+		add_child(voice)
+		sfx_players.append(voice)
+	if audio_streams.has("ambient"):
+		ambient_player.stream = audio_streams["ambient"]
+		ambient_player.play()
+	_set_music("theme")
+
+func _set_music(mode: String) -> void:
+	# Two states, per the score's design: the trail theme, and the lone
+	# drone that takes over when morale runs low.
+	if music_mode == mode or not audio_streams.has(mode) or music_player == null:
+		return
+	music_mode = mode
+	music_player.stream = audio_streams[mode]
+	music_player.play()
+
+func _play_sfx(key: String) -> void:
+	if not audio_streams.has(key) or sfx_players.is_empty():
+		return
+	var voice := sfx_players[sfx_cursor % sfx_players.size()]
+	sfx_cursor += 1
+	voice.stream = audio_streams[key]
+	voice.play()
+
 func _juice_all_buttons(node: Node) -> void:
 	# Every button in the game answers the hand: brighten on hover, squash on
 	# press. One recursive pass instead of two hundred connect calls.
@@ -2935,6 +2994,7 @@ func _juice_all_buttons(node: Node) -> void:
 				t.tween_property(button, "modulate", Color.WHITE, 0.12)
 				t.tween_property(button, "scale", Vector2.ONE, 0.12))
 			button.button_down.connect(func() -> void:
+				_play_sfx("click")
 				button.pivot_offset = button.size * 0.5
 				var t := create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 				t.tween_property(button, "scale", Vector2(0.95, 0.95), 0.06))
@@ -3573,6 +3633,7 @@ func _on_card_pressed(index: int) -> void:
 			if payer != "" and not CARDS[card_id].get("memory", false):
 				_register_bond_play(payer)
 			_apply_effect_dictionary(event["a_fx"])
+			_play_sfx("stamp")
 			_float_combo("THE CARD ANSWERS")
 			_resolve_event("CARD PLAYED  ·  " + str(event["ad"]))
 			_sync_and_refresh()
@@ -3592,6 +3653,7 @@ func _on_card_pressed(index: int) -> void:
 	else:
 		discard_pile.append(card_id)
 	card_play_count += 1
+	_play_sfx("card")
 	_animate_card_play()
 	var member_id := str(CARDS[card_id].get("family", ""))
 	if member_id != "" and not CARDS[card_id].get("memory", false):
@@ -3702,6 +3764,7 @@ func _apply_card(card_id: String) -> void:
 				_open_pa_choice(card_id, amount)
 			"enemy_damage":
 				if encounter_active:
+					_play_sfx("gunshot" if _card_tags(card_id).has("gun") else "hit")
 					var dealt := amount
 					if per_tag_count > 0 and combo.has("bonus_damage"):
 						var extra: int = per_tag_count * int(combo["bonus_damage"])
@@ -3933,6 +3996,7 @@ func _stage_player_strike(amount: int) -> void:
 func _stage_enemy_lunge() -> void:
 	if combat_stage == null or not combat_stage.visible:
 		return
+	_play_sfx("hit")
 	var lunge := create_tween()
 	lunge.tween_property(enemy_actor, "position:x", enemy_actor.position.x - 90.0, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	lunge.tween_property(enemy_actor, "position:x", enemy_actor.position.x, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
@@ -3999,6 +4063,10 @@ func _start_encounter() -> void:
 	if intent_pulse_tween != null and intent_pulse_tween.is_valid():
 		intent_pulse_tween.kill()
 	_ensure_combat_card_in_hand()
+	# Beasts announce themselves; men let the road go quiet.
+	var enemy_stem := str(encounter["art"]).get_file().get_basename()
+	if enemy_stem in ["wolf", "grizzly", "mountain-lion", "rattlesnake"]:
+		_play_sfx("growl")
 	_stage_show_enemy(str(encounter["art"]))
 	_refresh_ui()
 
@@ -4201,6 +4269,7 @@ func _depart() -> void:
 	var road: Dictionary = MAIN_ROAD if pending_road == 0 else _alt_road_for_leg()
 	pending_road = 0
 	_reset_turn_context()
+	_play_sfx("roll")
 	if road.has("toll"):
 		money -= int(road["toll"])
 		_float_number("-$%d" % int(road["toll"]), Color("#a02818"), money_value)
@@ -4742,6 +4811,10 @@ func _refresh_ui() -> void:
 			map_canvas.fork_names = [str(MAIN_ROAD["name"]), str(alt["name"])]
 			map_canvas.fork_terms = [str(MAIN_ROAD["terms"]), str(alt["terms"])]
 		map_canvas.queue_redraw()
+	# The score follows morale: the theme while hope holds, a lone fiddle
+	# drone when it runs low.
+	if run_mode == "map":
+		_set_music("drone" if morale < 30 else "theme")
 	# --- UI phase state machine: travel / event / fight ------------------
 	# TRAVEL: the map IS the screen — the sheet slides off-stage right and
 	# the roads are the only call to action. EVENT: the sheet slides in and
