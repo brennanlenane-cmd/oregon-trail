@@ -66,7 +66,7 @@ func _test_camp_and_naming() -> void:
 	_check(str(game.party["sarah"]["name"]) == "Nell", "kid renamed to Nell")
 	_check(game._card_display_name("family_sarah") == "Nell's Keen Eyes", "card title carries the name")
 	_check(game.hand.size() == 5, "opening hand of 5")
-	_check(game.grit == 3, "grit starts at 3")
+	_check(game.grit == game.BASE_GRIT, "grit starts at BASE_GRIT (%d)" % game.BASE_GRIT)
 
 func _find_hand_index(predicate: Callable) -> int:
 	for i in game.hand.size():
@@ -178,7 +178,7 @@ func _test_encounter_and_brace() -> void:
 		2: actual = before["morale"] - game.morale
 		_: actual = before["wagon"] - game.wagon_health
 	_check(actual == expected, "brace: the hit equals the disclosed intent (%d vs %d)" % [actual, expected])
-	_check(game.grit == 3, "brace refills grit")
+	_check(game.grit == game.BASE_GRIT, "brace refills grit to BASE_GRIT")
 	# Family cards are playable in a fight; combat plays still answer.
 	var dog_index := _find_hand_index(func(card_id: String) -> bool: return str(game.CARDS[card_id].get("family", "")) == "dog")
 	if dog_index >= 0 and game.encounter_active:
@@ -433,7 +433,13 @@ func _test_full_run() -> void:
 				_press(game.probe_continue_button)
 		await process_frame
 	_check(game.game_over or game.victory, "a full run reaches an ending (guard %d)" % guard)
-	var invariant: int = game.hand.size() + game.draw_pile.size() + game.discard_pile.size() + game.exhausted.size()
+	# Trail junk (statuses the enemy shoved in) rides the piles but never joins
+	# the deck ledger — it burns off at each new leg, so count it out here.
+	var invariant: int = 0
+	for pile in [game.hand, game.draw_pile, game.discard_pile, game.exhausted]:
+		for pile_card in pile:
+			if str(game.CARDS[pile_card].get("type", "")) != "status":
+				invariant += 1
 	_check(invariant == game.deck_ids.size(), "deck ledger invariant holds at the end (%d vs %d)" % [invariant, game.deck_ids.size()])
 	_check(FileAccess.file_exists(game.HISTORY_PATH), "the run is written into the trail journal")
 	var history: Array = game._read_history()
@@ -572,22 +578,71 @@ func _test_full_run() -> void:
 	game.hand.clear()
 	game.hand.append_array(["scout_ahead", "forage"])
 	var combo_supplies: int = game.supplies
-	game._on_card_pressed(0)
+	var wagon_before_wager: int = game.wagon_health
 	game._on_card_pressed(game.hand.find("forage"))
-	_check(game.supplies - combo_supplies >= 6, "Forage chains +2 per TRAIL card this turn")
+	var foraged: int = game.supplies - combo_supplies
+	_check(foraged >= 2 and foraged <= 12 and foraged % 2 == 0, "Forage wagers 1d6 for +2 supplies per pip (got %d)" % foraged)
+	_check(foraged > 2 or game.wagon_health == wagon_before_wager - 6, "a Forage roll of 1 breaks the wagon (-6)")
+	# ---- Exhaust & Stoke: the family is the furnace ----
+	game.grit = 1
+	game.hand.clear()
+	game.hand.append_array(["family_dog", "scout_ahead"])
+	var stoke_draw_before: int = game.hand.size()
+	game._on_discard_pressed(0)
+	_check(game.grit == 2, "stoking a family card grants +1 Grit")
+	_check(int(game.party["dog"].get("stoked", 0)) == 1, "the stoked member carries tonight's risk")
+	_check(game.exhausted.has("family_dog"), "the stoked member is spent for the leg")
+	_check(game.hand.size() >= stoke_draw_before - 1, "stoking draws a replacement when the piles allow")
+	# ---- Campfire fuel: burn a card, morale by its cost ----
+	game.grit = 3
+	game.hand.clear()
+	game.hand.append_array(["campfire_stories", "trading_ledger"])
+	game.morale = 50
+	game._on_card_pressed(0)
+	_check(game.morale == 60, "Campfire burns the ledger: +4 base +3x its 2 cost")
+	_check(not game.hand.has("trading_ledger"), "the burned card leaves the hand")
+	# ---- Wagon repair heals the wagon now ----
+	game.grit = 3
+	game.wagon_health = 60
+	game.hand.clear()
+	game.hand.append_array(["wagon_repair"])
+	game._on_card_pressed(0)
+	_check(game.wagon_health == 68, "Wagon Repair heals the wagon +8")
 	# ---- Forks: every leg offers a second road, stable for the seed ----
 	var alt_road: Dictionary = game._alt_road_for_leg()
 	_check(alt_road.has("name") and alt_road.has("terms"), "every leg offers an alternate road")
 	_check(str(alt_road["id"]) == str(game._alt_road_for_leg()["id"]), "the fork is stable for the seed and leg")
-	# ---- The fun patch: winter clock, escalation, the Pass Keeper ----
+	# ---- The fun patch: winter clock, deck-fouling escalation, the Pass Keeper ----
 	game.encounter_active = true
 	game.encounter_threat = 6
 	game.encounter_health = 50
 	game.encounter_max_health = 50
 	game.morale = 80
+	game.enemy_hit_this_turn = false
 	game.hand.clear()
+	var junk_before: int = 0
+	for pile_card in game.discard_pile:
+		if str(game.CARDS[pile_card].get("type", "")) == "status":
+			junk_before += 1
 	game._on_continue_pressed()
-	_check(game.encounter_threat >= 8, "an enemy that survives a turn grows bolder (+2 threat)")
+	var junk_after: int = 0
+	for pile in [game.discard_pile, game.draw_pile, game.hand, game.exhausted]:
+		for pile_card in pile:
+			if str(game.CARDS[pile_card].get("type", "")) == "status":
+				junk_after += 1
+	_check(junk_after > junk_before, "an unanswered enemy fouls the deck with a status card")
+	_check(not game._can_play("dust_inhalation"), "status cards are unplayable")
+	# Statuses burn off when the wagon rolls out.
+	game.encounter_active = false
+	game.event_active = false
+	game.reward_pending = false
+	game._start_leg()
+	var junk_left: int = 0
+	for pile in [game.discard_pile, game.draw_pile, game.hand, game.exhausted]:
+		for pile_card in pile:
+			if str(game.CARDS[pile_card].get("type", "")) == "status":
+				junk_left += 1
+	_check(junk_left == 0, "statuses burn off at the next leg")
 	game.encounter_active = false
 	game.route_index = game.ROUTE_STOPS.size() - 2
 	game._start_encounter()

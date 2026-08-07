@@ -278,6 +278,13 @@ const LOCKED_CARDS := {"wainwright": 2, "steady_nerve": 3, "trail_map": 4}
 # blizzards do the killing. This is what makes every day matter.
 const WINTER_SOFT_DAY := 80
 const WINTER_HARD_DAY := 110
+# EXHAUST & STOKE: turns start lean (2 Grit), and the family IS the furnace —
+# stoke a member's card (right-click) to exhaust them for +1 Grit and +1 draw,
+# at the price of a growing chance they fall sick that night. Pushing the
+# people you love against the winter clock is the game.
+const BASE_GRIT := 2
+const GRIT_CAP := 5
+const STOKE_RISK := 0.10  # per stoke, cumulative within a leg
 # Two roads to every landmark: the main trail, and a detour with teeth.
 # The alternate is seeded per leg, so a shared trail seed shares its forks.
 const MAIN_ROAD := {"id": "main", "name": "THE MAIN TRAIL", "terms": "steady wheels"}
@@ -351,6 +358,7 @@ var encounter_threat := 0
 var encounter_block := 0
 var encounter_turn := 0
 var encounter_resolved := false
+var enemy_hit_this_turn := false  # a turn the enemy goes unhit, it fouls the deck
 var reward_pending := false
 var game_over := false
 var victory := false
@@ -910,15 +918,21 @@ func _initialize_run() -> void:
 func _start_leg() -> void:
 	if game_over or victory:
 		return
-	grit = 3
+	grit = BASE_GRIT
 	_reset_turn_context()
 	pending_leave_confirm = false
-	# Memories exhaust for the leg only — they always come back.
+	# Memories exhaust for the leg only — they always come back. Statuses the
+	# trail shoved in (dust, broken axles) burn off when the wagon rolls out.
 	for card_id in exhausted:
-		draw_pile.append(card_id)
+		if str(CARDS[card_id].get("type", "")) != "status":
+			draw_pile.append(card_id)
 	if not exhausted.is_empty():
 		exhausted.clear()
 		draw_pile.shuffle()
+	for pile in [draw_pile, hand, discard_pile]:
+		for i in range(pile.size() - 1, -1, -1):
+			if str(CARDS[pile[i]].get("type", "")) == "status":
+				pile.remove_at(i)
 	_draw_until_five()
 	event_active = false
 	encounter_active = false
@@ -3351,6 +3365,34 @@ func _draw_one() -> bool:
 	var drawn: String = draw_pile.pop_back()
 	hand.append(drawn)
 	_on_family_card_drawn(drawn)
+	# Statuses bite the moment they surface — the dust costs breath, the
+	# broken axle costs cards. Drawing them IS the enemy's escalation.
+	var on_draw: Dictionary = CARDS[drawn].get("on_draw", {})
+	if not on_draw.is_empty():
+		if on_draw.has("grit"):
+			grit = clamp(grit + int(on_draw["grit"]), 0, GRIT_CAP)
+			_float_number("DUST  -1 GRIT", Color("#a02818"), grit_value)
+		if on_draw.has("exhaust_random"):
+			var lost := 0
+			var tries := 0
+			while lost < int(on_draw["exhaust_random"]) and tries < 20:
+				tries += 1
+				if hand.size() <= 1:
+					break
+				var pick := randi() % hand.size()
+				if hand[pick] == drawn or str(CARDS[hand[pick]].get("type", "")) == "status":
+					continue
+				exhausted.append(hand[pick])
+				hand.remove_at(pick)
+				lost += 1
+			if lost > 0:
+				_float_combo("THE AXLE GIVES  ·  %d CARD%s LOST" % [lost, "" if lost == 1 else "S"])
+				_play_sfx("hit")
+			# The axle spends itself in the breaking.
+			var self_index := hand.find(drawn)
+			if self_index >= 0:
+				hand.remove_at(self_index)
+				exhausted.append(drawn)
 	return true
 
 func _on_family_card_drawn(card_id: String) -> void:
@@ -3680,6 +3722,8 @@ func _start_hand_wobble(card: Control, rest_r: float, k: int) -> void:
 func _can_play(card_id: String) -> bool:
 	if game_over or victory or reward_pending or pa_choice_active or letter_pending or shop_open:
 		return false
+	if CARDS[card_id].get("unplayable", false):
+		return false
 	var affordable := grit >= _card_cost(card_id)
 	if encounter_active:
 		# Family rides into danger too: their cards stay playable in a fight.
@@ -3796,6 +3840,24 @@ func _on_discard_pressed(index: int) -> void:
 	if index < 0 or index >= hand.size() or event_active or reward_pending or game_over or victory:
 		return
 	var card_id := hand[index]
+	# STOKE: right-clicking a living family member's card pushes them harder —
+	# they're spent for the leg, the party gains +1 Grit and draws 1, and each
+	# stoke stacks 10% odds they collapse sick when camp is made that night.
+	var member_id := str(CARDS[card_id].get("family", ""))
+	if member_id != "" and not CARDS[card_id].get("memory", false) \
+			and party.has(member_id) and party[member_id]["alive"]:
+		hand.remove_at(index)
+		exhausted.append(card_id)
+		grit = clamp(grit + 1, 0, GRIT_CAP)
+		party[member_id]["stoked"] = int(party[member_id].get("stoked", 0)) + 1
+		_draw_cards(1)
+		_play_sfx("card")
+		_float_number("+1 GRIT", Color("#b5892c"), grit_value)
+		_float_combo("%s PUSHES ON" % str(party[member_id]["name"]).to_upper())
+		_show_bark(member_id, "low_morale")
+		card_status.text = "%s is spent for this leg  ·  stoke risk tonight: %d%%" % [party[member_id]["name"], int(party[member_id]["stoked"]) * 10]
+		_sync_and_refresh()
+		return
 	hand.remove_at(index)
 	discard_pile.append(card_id)
 	card_status.text = "%s discarded without a cost." % CARDS[card_id]["name"]
@@ -3804,6 +3866,40 @@ func _on_discard_pressed(index: int) -> void:
 func _apply_card(card_id: String) -> void:
 	var effects := _effective_fx(card_id)
 	var combo: Dictionary = CARDS[card_id].get("combo", {})
+	# WAGER: the card is a dice throw, not a spreadsheet row. Roll first so the
+	# whole table sees the number land before anything resolves.
+	var wager: Dictionary = CARDS[card_id].get("wager", {})
+	if not wager.is_empty():
+		var roll := randi_range(1, 6)
+		_float_combo("ROLL  %d" % roll)
+		if wager.has("pip_supplies"):
+			var found := roll * int(wager["pip_supplies"])
+			supplies = max(0, supplies + found)
+			_float_number("+%d" % found, Color("#1f5c33"), supply_value)
+		if roll <= int(wager.get("fail_on", 0)) and wager.has("fail_fx"):
+			_apply_effect_dictionary(wager["fail_fx"])
+			_float_number("SNAKE EYES", Color("#a02818"), supply_value)
+			_play_sfx("hit")
+	# FUEL: burns the priciest other non-KIN card in hand — its cost becomes morale.
+	var fuel: Dictionary = CARDS[card_id].get("fuel", {})
+	if not fuel.is_empty():
+		var burn_index := -1
+		var burn_cost := -1
+		for i in hand.size():
+			var other: Dictionary = CARDS[hand[i]]
+			if str(other.get("family", "")) == "" and str(other.get("type", "")) != "status":
+				if int(other["cost"]) > burn_cost:
+					burn_cost = int(other["cost"])
+					burn_index = i
+		var gained_morale := int(fuel.get("base_morale", 4))
+		if burn_index >= 0:
+			var burned: String = hand[burn_index]
+			hand.remove_at(burn_index)
+			discard_pile.append(burned)
+			gained_morale += burn_cost * int(fuel.get("per_cost", 3))
+			_float_combo("BURNED  %s" % _card_display_name(burned).to_upper())
+		morale = clamp(morale + gained_morale, 0, 100)
+		_float_number("+%d" % gained_morale, Color("#1f5c33"), morale_value)
 	var if_tag_met: bool = combo.has("if_tag") and _turn_tag_count(str(combo["if_tag"])) > 0
 	var per_tag_count: int = _turn_tag_count(str(combo["per_tag"])) if combo.has("per_tag") else 0
 	for key in effects.keys():
@@ -3841,7 +3937,7 @@ func _apply_card(card_id: String) -> void:
 					_float_combo("COMBO DRAW +%d" % int(combo["bonus_draw"]))
 				_draw_cards(amount)
 			"grit":
-				grit = clamp(grit + amount, 0, 3)
+				grit = clamp(grit + amount, 0, GRIT_CAP)
 			"days":
 				day = max(1, day + amount)
 			"reveal":
@@ -4152,6 +4248,7 @@ func _start_encounter() -> void:
 	encounter_block = 0
 	encounter_turn = 1
 	encounter_resolved = false
+	enemy_hit_this_turn = false
 	powder_horn_spent = false
 	encounter_active = true
 	event_active = false
@@ -4193,6 +4290,7 @@ func _animate_encounter_feedback(damage: bool) -> void:
 func _damage_encounter(amount: int) -> void:
 	encounter_health = maxi(0, encounter_health - amount)
 	encounter_threat = maxi(0, encounter_threat - 1)
+	enemy_hit_this_turn = true
 	_stage_player_strike(amount)
 	_stage_update_readouts()
 
@@ -4334,19 +4432,22 @@ func _on_continue_pressed() -> void:
 		_enemy_turn()
 		if game_over or morale <= 0:
 			return
-		# ESCALATION: every turn the enemy survives, it grows bolder. A fight
-		# you sit in gets worse — kill fast or pay for the patience.
-		if encounter_active:
-			encounter_threat += 2
-			_float_combo("+2 THREAT")
-		grit = 3
+		# ESCALATION: a turn the enemy goes unhit, it fouls the deck — dust in
+		# the lungs, a cracked axle. The junk cycles into your draws until the
+		# leg ends. Hitting back every turn is how you keep the deck clean.
+		if encounter_active and not enemy_hit_this_turn:
+			var junk := "dust_inhalation" if randi() % 2 == 0 else "broken_axle"
+			discard_pile.append(junk)
+			_float_combo("UNANSWERED  ·  %s FOULS THE DECK" % str(CARDS[junk]["name"]).to_upper())
+		enemy_hit_this_turn = false
+		grit = BASE_GRIT
 		_reset_turn_context()
 		_draw_until_five()
 		if _has_keepsake("hymnal"):
 			morale = clamp(morale + 2, 0, 100)
 			_float_number("+2", Color("#1f5c33"), morale_value)
 		if card_status != null:
-			card_status.text = "The party braces and regroups: new hand, Grit back to 3."
+			card_status.text = "The party braces and regroups: new hand, Grit back to %d." % BASE_GRIT
 		_sync_and_refresh()
 		return
 	# Misclick protection: leaving Grit on the table with a playable card asks once.
@@ -4443,6 +4544,20 @@ func _depart() -> void:
 				party[member_id]["disease"] = "dysentery"
 				_show_bark(member_id, "sick")
 				road_note += "  ·  %s HAS DYSENTERY from the river water" % str(party[member_id]["name"]).to_upper()
+	# The stoke bill comes due at night: every push past the limit stacked 10%
+	# odds that member wakes fevered. The furnace runs on the family.
+	for member_id in PARTY_DATA.MEMBER_ORDER:
+		var stoked := int(party[member_id].get("stoked", 0))
+		if stoked <= 0:
+			continue
+		party[member_id]["stoked"] = 0
+		if party[member_id]["alive"] and int(party[member_id]["condition"]) < 2 \
+				and randf() < STOKE_RISK * float(stoked):
+			party[member_id]["condition"] = 2
+			party[member_id]["legs_sick"] = 0
+			party[member_id]["disease"] = "exhaustion"
+			_show_bark(member_id, "sick")
+			road_note += "  ·  %s COLLAPSES — pushed too hard" % str(party[member_id]["name"]).to_upper()
 	completed_legs += 1
 	route_index = min(completed_legs, ROUTE_STOPS.size() - 1)
 	var ox_note := "  ·  %s saved %d day%s" % [party["ox"]["name"], saved_days, "" if saved_days == 1 else "s"] if saved_days > 0 else ""
@@ -4560,7 +4675,7 @@ func _apply_effect_dictionary(effects: Dictionary) -> void:
 			"supplies": supplies = max(0, supplies + amount)
 			"morale": morale = clamp(morale + amount, 0, 100)
 			"days": day = max(1, day + amount)
-			"grit": grit = clamp(grit + amount, 0, 3)
+			"grit": grit = clamp(grit + amount, 0, GRIT_CAP)
 			"wagon": wagon_health = clamp(wagon_health + amount, 0, 100)
 			"rest": _rest_one_member()
 	if morale <= 0:
@@ -5401,7 +5516,7 @@ func _load_game() -> bool:
 	morale = int(state.get("morale", 82))
 	wagon_health = int(state.get("wagon_health", 100))
 	injuries = int(state.get("injuries", 0))
-	grit = int(state.get("grit", 3))
+	grit = int(state.get("grit", BASE_GRIT))
 	event_active = bool(state.get("event_active", false))
 	current_event_index = int(state.get("current_event_index", 0))
 	event_cursor = int(state.get("event_cursor", 0))

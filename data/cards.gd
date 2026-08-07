@@ -9,100 +9,105 @@ const CARDS := {
 	#   if_tag + bonus_*      — one-time kicker if the tag showed up this turn
 	#   prime_tag + mult      — the NEXT card with that tag this turn is multiplied
 	#   discount_per_play     — cost drops per card already played this turn
+	# WAGERS make resource cards a gamble instead of a spreadsheet:
+	#   per_pip + pip_supplies — roll 1d6, gain pip_supplies × the roll
+	#   fail_on + fail_fx      — rolling at or under fail_on also triggers fail_fx
+	# FUEL burns another card from hand as the price:
+	#   base_morale + per_cost — morale = base + per_cost × the burned card's cost
 	"trail_rations": {
 		"name": "Trail Rations", "cost": 1, "type": "supply", "role": "quartermaster", "rarity": "starter",
 		"art": "res://assets/art/wagon-train.jpg", "tags": ["goods"],
-		"text": "Spend 3 supplies. Gain 6 morale.",
+		"text": "-3 SUPPLIES → +6 MORALE.",
 		"fx": {"supplies": -3, "morale": 6}
 	},
 	"forage": {
 		"name": "Forage", "cost": 1, "type": "supply", "rarity": "starter",
 		"art": "res://assets/art/bison-hunt.jpg", "tags": ["trail"],
-		"text": "Find 4 supplies. +2 per TRAIL card this turn.",
-		"fx": {"supplies": 4},
-		"combo": {"per_tag": "trail", "bonus_supplies": 2}
+		"text": "ROLL 1d6 → +2 SUPPLIES × ROLL. ON 1: WAGON -6.",
+		"fx": {},
+		"wager": {"pip_supplies": 2, "fail_on": 1, "fail_fx": {"wagon": -6}}
 	},
 	"campfire_stories": {
-		"name": "Campfire Stories", "cost": 1, "type": "morale", "rarity": "starter",
+		"name": "Campfire Stories", "cost": 0, "type": "morale", "rarity": "starter",
 		"art": "res://assets/art/campfire.jpg", "tags": ["fire"],
-		"text": "Gain 7 morale. After a KIN card: +4 more.",
-		"fx": {"morale": 7},
-		"combo": {"if_tag": "kin", "bonus_morale": 4}
+		"text": "BURN 1 CARD: MORALE +4, +3 × ITS COST.",
+		"fx": {},
+		"fuel": {"base_morale": 4, "per_cost": 3}
 	},
 	"scout_ahead": {
 		"name": "Scout Ahead", "cost": 0, "type": "scout", "rarity": "starter",
 		"art": "res://assets/art/chimney-rock.jpg", "tags": ["trail"],
-		"text": "Read the trail. Draw 2 cards.",
+		"text": "DRAW 2.",
 		"fx": {"draw": 2}
 	},
 	"trading_ledger": {
 		"name": "Trading Ledger", "cost": 2, "type": "supply", "rarity": "starter",
 		"art": "res://assets/art/whiskey-ad.png", "tags": ["goods"],
-		"text": "Gain 8 supplies. +3 per GOODS card this turn.",
+		"text": "+8 SUPPLIES. +3 PER GOODS.",
 		"fx": {"supplies": 8},
 		"combo": {"per_tag": "goods", "bonus_supplies": 3}
 	},
 	"river_guide": {
 		"name": "River Guide", "cost": 1, "type": "scout", "rarity": "common",
 		"art": "res://assets/art/river-crossing.jpg", "tags": ["trail"],
-		"text": "Cross safely. Gain 5 supplies, 2 morale.",
+		"text": "+5 SUPPLIES, +2 MORALE.",
 		"fx": {"supplies": 5, "morale": 2}
 	},
 	"wagon_repair": {
 		"name": "Wagon Repair", "cost": 1, "type": "supply", "rarity": "common",
 		"art": "res://assets/art/wagon-train.jpg", "tags": ["goods"],
-		"text": "Patch the wagon. Gain 6 supplies.",
-		"fx": {"supplies": 6}
+		"text": "WAGON +8.",
+		"fx": {"wagon": 8}
 	},
 	"steady_nerve": {
 		"name": "Steady Nerve", "cost": 1, "type": "morale", "rarity": "uncommon",
 		"art": "res://assets/art/grizzly-vs-bison.png", "tags": ["fire"],
-		"text": "Gain 10 morale and draw 1.",
+		"text": "+10 MORALE. DRAW 1.",
 		"fx": {"morale": 10, "draw": 1}
 	},
 	"trail_map": {
 		"name": "Trail Map", "cost": 0, "type": "scout", "rarity": "uncommon",
 		"art": "res://assets/art/compass.jpg", "tags": ["trail"],
-		"text": "Shortcut: +2 supplies, -1 day, draw 1.",
+		"text": "+2 SUPPLIES. -1 DAY. DRAW 1.",
 		"fx": {"supplies": 2, "days": -1, "draw": 1}
 	},
 	"wainwright": {
 		"name": "Wainwright", "cost": 0, "type": "supply", "rarity": "rare",
 		"art": "res://assets/art/wagon-train.jpg", "tags": ["goods"],
-		"text": "A perfect repair. Gain 10 supplies and draw 1.",
+		"text": "+10 SUPPLIES. DRAW 1.",
 		"fx": {"supplies": 10, "draw": 1}
 	},
 	"revolver": {
 		"name": "Revolver", "cost": 1, "type": "combat", "role": "attack", "rarity": "starter",
-		"text": "Deal 7. +2 per GUN fired this turn.",
+		"text": "DEAL 7. +2 PER GUN.",
 		"art": "res://assets/art/revolver-patent.jpg", "tags": ["gun"],
 		"fx": {"enemy_damage": 7},
 		"combo": {"per_tag": "gun", "bonus_damage": 2}
 	},
 	"lasso": {
 		"name": "Lasso", "cost": 1, "type": "combat", "role": "control", "rarity": "starter",
-		"text": "Deal 5, Block 5. Next GUN this turn hits DOUBLE.",
+		"text": "DEAL 5, BLOCK 5. NEXT GUN ×2.",
 		"art": "res://assets/art/lasso.jpg", "tags": ["rope"],
 		"fx": {"enemy_damage": 5, "block": 5},
 		"combo": {"prime_tag": "gun", "mult": 2}
 	},
 	"rifle": {
 		"name": "Winchester Rifle", "cost": 1, "type": "combat", "role": "attack", "rarity": "common",
-		"text": "Deal 10. +3 per GUN fired this turn.",
+		"text": "DEAL 10. +3 PER GUN.",
 		"art": "res://assets/art/rifle-winchester-ad.jpg", "tags": ["gun"],
 		"fx": {"enemy_damage": 10},
 		"combo": {"per_tag": "gun", "bonus_damage": 3}
 	},
 	"bowie_knife": {
 		"name": "Bowie Knife", "cost": 0, "type": "combat", "role": "utility", "rarity": "starter",
-		"text": "Deal 4, draw 1. After a GUN: +4 Block.",
+		"text": "DEAL 4. DRAW 1. AFTER GUN: BLOCK +4.",
 		"art": "res://assets/art/bowie-knife.jpg", "tags": ["blade"],
 		"fx": {"enemy_damage": 4, "block": 2, "draw": 1},
 		"combo": {"if_tag": "gun", "bonus_block": 4}
 	},
 	"dynamite": {
 		"name": "Dynamite", "cost": 3, "type": "combat", "role": "finisher", "rarity": "starter",
-		"text": "Deal 14. Costs 1 less per card played this turn.",
+		"text": "DEAL 14. COSTS -1 PER PLAY.",
 		"art": "res://assets/art/dynamite-ad.jpg", "tags": ["fire"],
 		"fx": {"enemy_damage": 14},
 		"combo": {"discount_per_play": 1}
@@ -110,21 +115,36 @@ const CARDS := {
 	"medicine": {
 		"name": "Medicine Chest", "cost": 1, "type": "supply", "rarity": "common",
 		"art": "res://assets/art/medicine-ad.jpg", "tags": ["care"],
-		"text": "Cure the worst-off member. Gain 2 morale.",
+		"text": "CURE WORST-OFF. +2 MORALE.",
 		"fx": {"cure": 1, "morale": 2}
 	},
 	"laudanum": {
 		"name": "Laudanum", "cost": 1, "type": "morale", "role": "remedy", "rarity": "doctor",
 		"art": "res://assets/art/whiskey-ad.png", "tags": ["care"],
-		"text": "Gain 4 morale. Block 4.",
+		"text": "+4 MORALE. BLOCK 4.",
 		"fx": {"morale": 4, "block": 4}
 	},
 	"scalpel": {
 		"name": "Scalpel", "cost": 1, "type": "combat", "role": "precision", "rarity": "doctor",
 		"art": "res://assets/art/medicine-ad.jpg", "tags": ["blade", "care"],
-		"text": "Deal 6. +3 per CARE card this turn.",
+		"text": "DEAL 6. +3 PER CARE.",
 		"fx": {"enemy_damage": 6},
 		"combo": {"per_tag": "care", "bonus_damage": 3}
+	},
+
+	# ---- Statuses: junk the trail shoves into the deck. Unplayable, they
+	# ---- hurt when drawn, and they burn away when the wagon rolls out.
+	"dust_inhalation": {
+		"name": "Dust Inhalation", "cost": 0, "type": "status", "rarity": "status", "tags": [],
+		"unplayable": true, "art": "res://assets/art/prairie-fire.jpg",
+		"text": "UNPLAYABLE. DRAWN: -1 GRIT.",
+		"fx": {}, "on_draw": {"grit": -1}
+	},
+	"broken_axle": {
+		"name": "Broken Axle", "cost": 0, "type": "status", "rarity": "status", "tags": [],
+		"unplayable": true, "art": "res://assets/art/scene/event-breakdown.png",
+		"text": "UNPLAYABLE. DRAWN: LOSES 2 CARDS.",
+		"fx": {}, "on_draw": {"exhaust_random": 2}
 	},
 
 	# ---- The Family: persistent party-member cards. "family" names the member;
@@ -132,91 +152,91 @@ const CARDS := {
 	"family_pa": {
 		"name": "{name}'s Steady Hands", "cost": 1, "type": "supply", "role": "father", "rarity": "family", "tags": ["kin"],
 		"family": "pa", "art": "res://assets/sprites/family/pa.png",
-		"text": "Choose: gain 5 supplies, or repair the wagon by 5.",
+		"text": "CHOOSE: +5 SUPPLIES / WAGON +5.",
 		"fx": {"pa_choice": 5}
 	},
 	"family_pa_u": {
 		"name": "{name}'s Steady Hands+", "cost": 1, "type": "supply", "role": "father", "rarity": "family", "tags": ["kin"],
 		"family": "pa", "art": "res://assets/sprites/family/pa.png",
-		"text": "Choose: gain 7 supplies, or repair the wagon by 7.",
+		"text": "CHOOSE: +7 SUPPLIES / WAGON +7.",
 		"fx": {"pa_choice": 7}
 	},
 	"family_pa_u2": {
 		"name": "{name}'s Steady Hands++", "cost": 1, "type": "supply", "role": "father", "rarity": "family", "tags": ["kin"],
 		"family": "pa", "art": "res://assets/sprites/family/pa.png",
-		"text": "Choose: gain 7 supplies, or repair the wagon by 7. Draw 1.",
+		"text": "CHOOSE: +7 SUPPLIES / WAGON +7. DRAW 1.",
 		"fx": {"pa_choice": 7, "draw": 1}
 	},
 	"family_ma": {
 		"name": "{name}'s Resolve", "cost": 1, "type": "morale", "role": "mother", "rarity": "family", "tags": ["kin"],
 		"family": "ma", "art": "res://assets/sprites/family/ma.png",
-		"text": "Gain 6 morale. If morale is below 30, gain 10 instead.",
+		"text": "+6 MORALE. UNDER 30: +10.",
 		"fx": {"morale_resolve": 6, "resolve_low_bonus": 4}
 	},
 	"family_ma_u": {
 		"name": "{name}'s Resolve+", "cost": 1, "type": "morale", "role": "mother", "rarity": "family", "tags": ["kin"],
 		"family": "ma", "art": "res://assets/sprites/family/ma.png",
-		"text": "Gain 8 morale. If morale is below 30, gain 13 instead.",
+		"text": "+8 MORALE. UNDER 30: +13.",
 		"fx": {"morale_resolve": 8, "resolve_low_bonus": 5}
 	},
 	"family_ma_u2": {
 		"name": "{name}'s Resolve++", "cost": 1, "type": "morale", "role": "mother", "rarity": "family", "tags": ["kin"],
 		"family": "ma", "art": "res://assets/sprites/family/ma.png",
-		"text": "Gain 8 morale. If morale is below 30, gain 13 instead. Draw 1.",
+		"text": "+8 MORALE. UNDER 30: +13. DRAW 1.",
 		"fx": {"morale_resolve": 8, "resolve_low_bonus": 5, "draw": 1}
 	},
 	"family_sarah": {
 		"name": "{name}'s Keen Eyes", "cost": 0, "type": "scout", "role": "kid", "rarity": "family", "tags": ["kin"],
 		"family": "sarah", "art": "res://assets/sprites/family/sarah.png",
-		"text": "Draw 1. {name} reveals what the next trail event asks for.",
+		"text": "DRAW 1. REVEAL NEXT EVENT.",
 		"fx": {"draw": 1, "reveal": 1}
 	},
 	"family_sarah_u": {
 		"name": "{name}'s Keen Eyes+", "cost": 0, "type": "scout", "role": "kid", "rarity": "family", "tags": ["kin"],
 		"family": "sarah", "art": "res://assets/sprites/family/sarah.png",
-		"text": "Draw 2. {name} reveals what the next trail event asks for.",
+		"text": "DRAW 2. REVEAL NEXT EVENT.",
 		"fx": {"draw": 2, "reveal": 1}
 	},
 	"family_sarah_u2": {
 		"name": "{name}'s Keen Eyes++", "cost": 0, "type": "scout", "role": "kid", "rarity": "family", "tags": ["kin"],
 		"family": "sarah", "art": "res://assets/sprites/family/sarah.png",
-		"text": "Draw 2, gain 2 morale. {name} reveals the next event's ask.",
+		"text": "DRAW 2, +2 MORALE. REVEAL EVENT.",
 		"fx": {"draw": 2, "reveal": 1, "morale": 2}
 	},
 	"family_dog": {
 		"name": "{name}", "cost": 0, "type": "morale", "role": "good dog", "rarity": "family", "tags": ["kin"],
 		"family": "dog", "art": "res://assets/sprites/family/dog.png",
-		"text": "Gain 2 morale. In a fight: the next hit lands 2 lighter.",
+		"text": "+2 MORALE. NEXT HIT -2.",
 		"fx": {"morale": 2, "threat": -2}
 	},
 	"family_dog_u": {
 		"name": "{name}+", "cost": 0, "type": "morale", "role": "good dog", "rarity": "family", "tags": ["kin"],
 		"family": "dog", "art": "res://assets/sprites/family/dog.png",
-		"text": "Gain 3 morale. In a fight: the next hit lands 3 lighter.",
+		"text": "+3 MORALE. NEXT HIT -3.",
 		"fx": {"morale": 3, "threat": -3}
 	},
 	"family_dog_u2": {
 		"name": "{name}++", "cost": 0, "type": "morale", "role": "good dog", "rarity": "family", "tags": ["kin"],
 		"family": "dog", "art": "res://assets/sprites/family/dog.png",
-		"text": "Gain 3 morale, draw 1. In a fight: the next hit lands 3 lighter.",
+		"text": "+3 MORALE, DRAW 1. NEXT HIT -3.",
 		"fx": {"morale": 3, "threat": -3, "draw": 1}
 	},
 	"family_ox": {
 		"name": "{name}", "cost": 2, "type": "supply", "role": "the ox", "rarity": "family", "tags": ["kin"],
 		"family": "ox", "art": "res://assets/sprites/family/ox.png",
-		"text": "The next leg of travel takes 1 fewer day.",
+		"text": "NEXT LEG: -1 DAY.",
 		"fx": {"travel_bonus": 1}
 	},
 	"family_ox_u": {
 		"name": "{name}+", "cost": 1, "type": "supply", "role": "the ox", "rarity": "family", "tags": ["kin"],
 		"family": "ox", "art": "res://assets/sprites/family/ox.png",
-		"text": "The next leg of travel takes 1 fewer day.",
+		"text": "NEXT LEG: -1 DAY.",
 		"fx": {"travel_bonus": 1}
 	},
 	"family_ox_u2": {
 		"name": "{name}++", "cost": 1, "type": "supply", "role": "the ox", "rarity": "family", "tags": ["kin"],
 		"family": "ox", "art": "res://assets/sprites/family/ox.png",
-		"text": "The next leg takes 1 fewer day. Forage 2 supplies on the move.",
+		"text": "NEXT LEG: -1 DAY. +2 SUPPLIES.",
 		"fx": {"travel_bonus": 1, "supplies": 2}
 	},
 
@@ -225,31 +245,31 @@ const CARDS := {
 	"memory_pa": {
 		"name": "Memory of {name}", "cost": 0, "type": "morale", "rarity": "memory", "tags": ["kin"],
 		"family": "pa", "memory": true, "exhaust": true,
-		"text": "Gain 8 morale. Exhausts for the leg. It always comes back.",
+		"text": "+8 MORALE. EXHAUSTS.",
 		"fx": {"morale": 8}
 	},
 	"memory_ma": {
 		"name": "Memory of {name}", "cost": 0, "type": "morale", "rarity": "memory", "tags": ["kin"],
 		"family": "ma", "memory": true, "exhaust": true,
-		"text": "Gain 8 morale. Exhausts for the leg. It always comes back.",
+		"text": "+8 MORALE. EXHAUSTS.",
 		"fx": {"morale": 8}
 	},
 	"memory_sarah": {
 		"name": "Memory of {name}", "cost": 0, "type": "morale", "rarity": "memory", "tags": ["kin"],
 		"family": "sarah", "memory": true, "exhaust": true,
-		"text": "Gain 8 morale. Exhausts for the leg. It always comes back.",
+		"text": "+8 MORALE. EXHAUSTS.",
 		"fx": {"morale": 8}
 	},
 	"memory_dog": {
 		"name": "Memory of {name}", "cost": 0, "type": "morale", "rarity": "memory", "tags": ["kin"],
 		"family": "dog", "memory": true, "exhaust": true,
-		"text": "Gain 8 morale. Exhausts for the leg. It always comes back.",
+		"text": "+8 MORALE. EXHAUSTS.",
 		"fx": {"morale": 8}
 	},
 	"memory_ox": {
 		"name": "Memory of {name}", "cost": 0, "type": "morale", "rarity": "memory", "tags": ["kin"],
 		"family": "ox", "memory": true, "exhaust": true,
-		"text": "Gain 8 morale. Exhausts for the leg. It always comes back.",
+		"text": "+8 MORALE. EXHAUSTS.",
 		"fx": {"morale": 8}
 	}
 }
