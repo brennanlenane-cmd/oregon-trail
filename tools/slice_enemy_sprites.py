@@ -18,7 +18,7 @@ BOXES = {
     "highwayman": (802, 415, 995, 618),
 }
 
-SEPIA_STRENGTH = 0.55
+SEPIA_STRENGTH = 0.0
 
 
 def process(img: Image.Image) -> Image.Image:

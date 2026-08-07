@@ -20,7 +20,7 @@ BUST_BOXES = {
     "ox": (0, 20, 130, 150),
 }
 
-SEPIA_STRENGTH = 0.55  # 0 = untouched, 1 = full monochrome sepia
+SEPIA_STRENGTH = 0.0  # full color restored - sprites live in painted scenes now  # 0 = untouched, 1 = full monochrome sepia
 
 
 def sepiafy(img: Image.Image) -> Image.Image:

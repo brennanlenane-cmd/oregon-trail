@@ -126,43 +126,17 @@ class TrailMapCanvas extends Control:
 		var font := label_font if label_font != null else ThemeDB.fallback_font
 		var ink := Color(0.29, 0.24, 0.18, 1.0)
 		var faint_ink := Color(0.35, 0.30, 0.24, 0.45)
-		# --- Cartography first: the paper should read as a MAP -----------
-		# Graticule: the survey grid every old atlas plate carries.
-		var grid := Color(0.42, 0.36, 0.28, 0.13)
-		for gx in range(1, 8):
-			draw_line(Vector2(size.x * gx / 8.0, 0), Vector2(size.x * gx / 8.0, size.y), grid, 1.0)
-		for gy in range(1, 6):
-			draw_line(Vector2(0, size.y * gy / 6.0), Vector2(size.x, size.y * gy / 6.0), grid, 1.0)
-		# The Rockies: a hatched spine running north-south mid-map.
-		for m in range(9):
-			var peak := Vector2(size.x * (0.33 + 0.035 * (m % 3) + 0.012 * m), size.y * (0.18 + 0.075 * m))
-			draw_line(peak + Vector2(-9, 7), peak, faint_ink, 1.4, true)
-			draw_line(peak, peak + Vector2(9, 7), faint_ink, 1.4, true)
-		draw_string(font, Vector2(size.x * 0.30, size.y * 0.14), "R O C K Y   M T S", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, faint_ink)
-		# Rivers: the Missouri sliding off the south-east, the Snake cutting west.
-		var river := Color(0.36, 0.44, 0.46, 0.5)
-		var missouri := [Vector2(0.97, 0.62), Vector2(0.93, 0.72), Vector2(0.95, 0.83), Vector2(0.90, 0.95)]
-		for j in range(missouri.size() - 1):
-			draw_line(Vector2(missouri[j].x * size.x, missouri[j].y * size.y), Vector2(missouri[j + 1].x * size.x, missouri[j + 1].y * size.y), river, 2.0, true)
-		var snake := [Vector2(0.30, 0.20), Vector2(0.22, 0.30), Vector2(0.13, 0.28), Vector2(0.05, 0.38)]
-		for j in range(snake.size() - 1):
-			draw_line(Vector2(snake[j].x * size.x, snake[j].y * size.y), Vector2(snake[j + 1].x * size.x, snake[j + 1].y * size.y), river, 2.0, true)
-		# Compass rose, top-right; cartouche along the southern margin.
-		var rose := Vector2(size.x * 0.93, size.y * 0.12)
-		draw_circle(rose, 13.0, faint_ink, false, 1.2)
-		draw_line(rose + Vector2(0, 9), rose + Vector2(0, -13), ink, 1.4, true)
-		draw_line(rose + Vector2(-6, 0), rose + Vector2(6, 0), faint_ink, 1.0, true)
-		draw_string(font, rose + Vector2(-4, -17), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, ink)
-		draw_string(font, Vector2(size.x * 0.44, size.y * 0.985), "· THE OREGON TRAIL — 1848 ·", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.45, 0.30, 0.20, 0.75))
+		# The painted chart beneath carries the geography — this overlay only
+		# inks the JOURNEY onto it: iron-gall lines, vermilion stamp red.
 		# --- The journey line: red dashes where the wagon has been -------
 		var current_node := _current_node()
 		for i in range(route_points.size() - 1):
 			var from := Vector2(route_points[i].x * size.x, route_points[i].y * size.y)
 			var to := Vector2(route_points[i + 1].x * size.x, route_points[i + 1].y * size.y)
 			if i < current_node:
-				_dashed_line(from, to, Color("#a02818"), 4.0, 11.0, 7.0)
+				_dashed_line(from, to, Color("#8c2d19"), 4.0, 11.0, 7.0)
 			else:
-				_dotted_line(from, to, Color(0.42, 0.34, 0.26, 0.55), 13.0, 1.8)
+				_dotted_line(from, to, Color(0.17, 0.13, 0.10, 0.55), 13.0, 1.8)
 		for branch in branch_routes:
 			for j in range(branch.size() - 1):
 				var branch_from := Vector2(branch[j].x * size.x, branch[j].y * size.y)
@@ -478,6 +452,7 @@ var wagon_actor: Control
 var enemy_actor: Control
 var enemy_plate: TextureRect
 var stage_hp_fill: ColorRect
+var stage_hp_bg: ColorRect
 var stage_hp_label: Label
 var stage_intent_label: Label
 var stage_intent_banner: PanelContainer
@@ -2016,6 +1991,17 @@ func _build_map_first_ui() -> void:
 		map_table.add_theme_stylebox_override("panel", _parchment_style(14))
 		add_child(map_table)
 		map_table_panel = map_table
+		# The table IS a painted map now — a full hand-painted chart of the
+		# West fills the paper; the route overlay inks itself on top.
+		if ResourceLoader.exists("res://assets/art/scene/map-west.png"):
+			var painted_map := TextureRect.new()
+			painted_map.name = "PaintedWest"
+			painted_map.texture = load("res://assets/art/scene/map-west.png") as Texture2D
+			painted_map.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			painted_map.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			painted_map.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+			painted_map.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			map_table.add_child(painted_map)
 		# Real paper has tooth: a tiled grain multiplied into the parchment.
 		if ResourceLoader.exists("res://assets/art/grain.png"):
 			var grain := TextureRect.new()
@@ -2083,6 +2069,8 @@ func _build_map_first_ui() -> void:
 	plate.add_theme_stylebox_override("panel", plate_style)
 	map_view.add_child(plate)
 	landmark_plate_panel = plate
+	# The painted chart made the inset vignette redundant clutter.
+	plate.visible = not ResourceLoader.exists("res://assets/art/scene/map-west.png")
 	var regional_landmark := TextureRect.new()
 	regional_landmark.name = "RegionalLandmarkPlateArt"
 	regional_landmark.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -2199,11 +2187,14 @@ func _build_map_first_ui() -> void:
 	# The paper theater: encounters play out here as plates on stands.
 	combat_stage = Control.new()
 	combat_stage.name = "CombatStage"
+	# The fight is a WINDOW into the West — edge to edge under the ribbon,
+	# never framed as parchment (art director's veto). Cards lie over its
+	# bottom edge like a table in front of the view.
 	combat_stage.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	combat_stage.anchor_left = 0.03
-	combat_stage.anchor_right = 0.64
-	combat_stage.anchor_top = 0.17
-	combat_stage.anchor_bottom = 0.72
+	combat_stage.anchor_left = 0.0
+	combat_stage.anchor_right = 1.0
+	combat_stage.anchor_top = 0.14
+	combat_stage.anchor_bottom = 1.0
 	combat_stage.offset_left = 0.0
 	combat_stage.offset_right = 0.0
 	combat_stage.offset_top = 0.0
@@ -2211,6 +2202,16 @@ func _build_map_first_ui() -> void:
 	combat_stage.visible = false
 	combat_stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	encounter_view.add_child(combat_stage)
+	var has_battle_scene := ResourceLoader.exists("res://assets/art/scene/battle-prairie.png")
+	if has_battle_scene:
+		var battle_backdrop := TextureRect.new()
+		battle_backdrop.name = "BattleBackdrop"
+		battle_backdrop.texture = load("res://assets/art/scene/battle-prairie.png") as Texture2D
+		battle_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		battle_backdrop.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		battle_backdrop.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		battle_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		combat_stage.add_child(battle_backdrop)
 	var stage_floor := PanelContainer.new()
 	stage_floor.name = "StageFloor"
 	stage_floor.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
@@ -2219,6 +2220,7 @@ func _build_map_first_ui() -> void:
 	stage_floor.offset_top = 0.0
 	stage_floor.offset_bottom = 0.0
 	stage_floor.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage_floor.visible = not has_battle_scene
 	var floor_style := StyleBoxFlat.new()
 	floor_style.bg_color = Color(0.55, 0.47, 0.35, 0.35)
 	floor_style.border_color = Color("#30251b")
@@ -2228,17 +2230,19 @@ func _build_map_first_ui() -> void:
 
 	# Actors are frameless book-plate cutouts printed straight into the paper —
 	# no stands, no white plates. The oval feather lives in the PNGs themselves.
+	# Combatants stand ON the painted ground strip, lower third, LARGE —
+	# the wagon at roughly a quarter of the screen's height.
 	wagon_actor = Control.new()
 	wagon_actor.name = "WagonActor"
-	wagon_actor.custom_minimum_size = Vector2(210, 240)
-	wagon_actor.size = Vector2(210, 240)
+	wagon_actor.custom_minimum_size = Vector2(430, 195)
+	wagon_actor.size = Vector2(430, 195)
 	wagon_actor.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	wagon_actor.anchor_top = 0.82
-	wagon_actor.anchor_bottom = 0.82
-	wagon_actor.offset_left = 30.0
-	wagon_actor.offset_top = -230.0
-	wagon_actor.offset_bottom = 10.0
-	wagon_actor.offset_right = 240.0
+	wagon_actor.anchor_top = 0.62
+	wagon_actor.anchor_bottom = 0.62
+	wagon_actor.offset_left = 70.0
+	wagon_actor.offset_top = -195.0
+	wagon_actor.offset_bottom = 0.0
+	wagon_actor.offset_right = 500.0
 	wagon_actor.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	combat_stage.add_child(wagon_actor)
 	# Both combatants are 16-bit pieces now — same box as the family on the
@@ -2255,8 +2259,10 @@ func _build_map_first_ui() -> void:
 		# In a fight the wagon faces its attacker — oxen toward the threat.
 		wagon_img.flip_h = true
 		var wagon_tex_size := (wagon_img.texture as Texture2D).get_size()
-		var wagon_fit := minf(210.0 / wagon_tex_size.x, 240.0 / wagon_tex_size.y)
-		wagon_img.offset_top = 240.0 - wagon_tex_size.y * wagon_fit
+		var wagon_fit := minf(430.0 / wagon_tex_size.x, 195.0 / wagon_tex_size.y)
+		wagon_img.offset_top = 195.0 - wagon_tex_size.y * wagon_fit
+		# Dusk light: warm highlights so the pieces sit in the sunset scene.
+		wagon_img.modulate = Color(1.05, 0.96, 0.9)
 	else:
 		wagon_img.texture = load("res://assets/art/cutouts/wagon.png") as Texture2D
 		_print_onto_paper(wagon_img)
@@ -2269,17 +2275,17 @@ func _build_map_first_ui() -> void:
 
 	enemy_actor = Control.new()
 	enemy_actor.name = "EnemyActor"
-	enemy_actor.custom_minimum_size = Vector2(320, 260)
-	enemy_actor.size = Vector2(320, 260)
+	enemy_actor.custom_minimum_size = Vector2(380, 320)
+	enemy_actor.size = Vector2(380, 320)
 	enemy_actor.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
 	enemy_actor.anchor_left = 1.0
 	enemy_actor.anchor_right = 1.0
-	enemy_actor.anchor_top = 0.82
-	enemy_actor.anchor_bottom = 0.82
-	enemy_actor.offset_left = -350.0
-	enemy_actor.offset_right = -30.0
-	enemy_actor.offset_top = -250.0
-	enemy_actor.offset_bottom = 10.0
+	enemy_actor.anchor_top = 0.62
+	enemy_actor.anchor_bottom = 0.62
+	enemy_actor.offset_left = -800.0
+	enemy_actor.offset_right = -420.0
+	enemy_actor.offset_top = -320.0
+	enemy_actor.offset_bottom = 0.0
 	enemy_actor.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	combat_stage.add_child(enemy_actor)
 	_add_stage_shadow(enemy_actor)
@@ -2288,21 +2294,22 @@ func _build_map_first_ui() -> void:
 	enemy_plate.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	enemy_plate.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	enemy_plate.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	enemy_plate.modulate = Color(1.05, 0.96, 0.9)
 	enemy_actor.add_child(enemy_plate)
-	# The health bar rides at the enemy's feet, straddling the floor line —
-	# below the actor it collides with the bark bubble.
-	var hp_bg := ColorRect.new()
-	hp_bg.color = Color("#c9bda4")
-	hp_bg.position = Vector2(50, 246)
-	hp_bg.size = Vector2(220, 10)
-	enemy_actor.add_child(hp_bg)
+	# The health bar hangs just over the creature's head; its exact height is
+	# set per enemy in _stage_show_enemy.
+	stage_hp_bg = ColorRect.new()
+	stage_hp_bg.color = Color(0.12, 0.09, 0.07, 0.55)
+	stage_hp_bg.position = Vector2(80, 120)
+	stage_hp_bg.size = Vector2(220, 10)
+	enemy_actor.add_child(stage_hp_bg)
 	stage_hp_fill = ColorRect.new()
 	stage_hp_fill.color = Color("#a02818")
-	stage_hp_fill.position = Vector2(50, 246)
+	stage_hp_fill.position = Vector2(80, 120)
 	stage_hp_fill.size = Vector2(220, 10)
 	enemy_actor.add_child(stage_hp_fill)
-	stage_hp_label = _label("", 14, Color("#221c14"))
-	stage_hp_label.position = Vector2(276, 222)
+	stage_hp_label = _label("", 14, Color("#f6efdc"))
+	stage_hp_label.position = Vector2(306, 116)
 	if font_display != null:
 		stage_hp_label.add_theme_font_override("font", font_display)
 	enemy_actor.add_child(stage_hp_label)
@@ -2611,8 +2618,8 @@ func _build_map_first_ui() -> void:
 	bark_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	bark_panel.anchor_left = 0.025
 	bark_panel.anchor_right = 0.38
-	bark_panel.anchor_top = 0.655
-	bark_panel.anchor_bottom = 0.655
+	bark_panel.anchor_top = 0.195
+	bark_panel.anchor_bottom = 0.195
 	bark_panel.offset_left = 0.0
 	bark_panel.offset_right = 0.0
 	bark_panel.offset_top = 0.0
@@ -3842,15 +3849,15 @@ func _stage_show_enemy(art_path: String) -> void:
 	if combat_stage == null:
 		return
 	enemy_plate.texture = load(art_path) as Texture2D
-	# Feet on the boards, and honest sizes: a wolf is wolf-sized next to a
-	# wagon; only the grizzly and the mounted man get to loom.
+	# Feet on the painted ground, honest sizes scaled for the big window:
+	# the grizzly and the mounted man loom; everything else is animal-sized.
 	const ENEMY_STAGE_HEIGHTS := {
-		"wolf": 110.0, "grizzly": 180.0, "rattlesnake": 72.0,
-		"mountain-lion": 100.0, "road-agent": 140.0, "highwayman": 180.0
+		"wolf": 150.0, "grizzly": 250.0, "rattlesnake": 100.0,
+		"mountain-lion": 140.0, "road-agent": 200.0, "highwayman": 250.0
 	}
 	if enemy_plate.texture != null:
 		var stem := art_path.get_file().get_basename()
-		var target_h: float = ENEMY_STAGE_HEIGHTS.get(stem, 150.0)
+		var target_h: float = ENEMY_STAGE_HEIGHTS.get(stem, 190.0)
 		var tex_size := (enemy_plate.texture as Texture2D).get_size()
 		var draw_w := tex_size.x * (target_h / tex_size.y)
 		var side_slack := maxf(0.0, (enemy_actor.size.x - draw_w) * 0.5)
@@ -3858,13 +3865,18 @@ func _stage_show_enemy(art_path: String) -> void:
 		enemy_plate.offset_bottom = 0.0
 		enemy_plate.offset_left = side_slack
 		enemy_plate.offset_right = -side_slack
-		# The intent banner hangs just over the creature's head, not the box's.
+		# Readouts stack over the creature's head: bar, number, intent.
+		var bar_y := enemy_actor.size.y - target_h - 24.0
+		if stage_hp_bg != null:
+			stage_hp_bg.position.y = bar_y
+			stage_hp_fill.position.y = bar_y
+			stage_hp_label.position.y = bar_y - 5.0
 		if stage_intent_banner != null:
-			stage_intent_banner.position.y = enemy_actor.size.y - target_h - 46.0
+			stage_intent_banner.position.y = bar_y - 46.0
 	enemy_actor.modulate = Color.WHITE
 	enemy_actor.rotation_degrees = 0.0
-	enemy_actor.pivot_offset = Vector2(160, 260)
-	wagon_actor.pivot_offset = Vector2(105, 240)
+	enemy_actor.pivot_offset = Vector2(190, 320)
+	wagon_actor.pivot_offset = Vector2(215, 195)
 	# Shooting-gallery pop-up: the target rises from below the boards.
 	enemy_actor.position.y += 90.0
 	var rise := create_tween()
