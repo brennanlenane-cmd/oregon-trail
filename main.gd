@@ -194,14 +194,24 @@ class TrailMapCanvas extends Control:
 				draw_string(font, point + Vector2(-name_width * 0.5, dy), stop_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, name_color)
 			if current and wagon_texture != null:
 				# The marker IS the wagon — parked right on the node, swaying.
-				var wagon_h := 26.0
+				var wagon_h := 31.0
 				var wagon_w := wagon_texture.get_width() * (wagon_h / wagon_texture.get_height())
 				var sway := sin(march_phase * 3.0) * 1.0
+				_draw_piece_shadow(point.x, point.y + 2.5, wagon_w * 0.9)
 				draw_texture_rect(wagon_texture, Rect2(Vector2(point.x - wagon_w * 0.5, point.y - wagon_h + 2.0 + sway), Vector2(wagon_w, wagon_h)), false)
 			elif current:
 				draw_circle(point, 10.0, Color("#a02818"), false, 2.0)
 		_draw_march()
 		_draw_fork()
+
+	func _draw_piece_shadow(center_x: float, ground_y: float, width: float) -> void:
+		# A tight soft ellipse under each piece anchors it to the paper —
+		# game pieces sitting ON the map, not sprites floating over it.
+		var points := PackedVector2Array()
+		for step in range(14):
+			var angle := TAU * float(step) / 14.0
+			points.append(Vector2(center_x + cos(angle) * width * 0.42, ground_y + sin(angle) * 3.2))
+		draw_colored_polygon(points, Color(0.14, 0.10, 0.06, 0.20))
 
 	func _draw_march() -> void:
 		# The little column walks in place just behind the wagon's node,
@@ -221,10 +231,11 @@ class TrailMapCanvas extends Control:
 			var sprite := march_textures[i]
 			if sprite == null:
 				continue
-			var sprite_h := 22.0
+			var sprite_h := 26.0
 			var sprite_w := sprite.get_width() * (sprite_h / sprite.get_height())
-			var spot := head + back_direction * (34.0 + float(i) * 14.0)
+			var spot := head + back_direction * (46.0 + float(i) * 17.0)
 			var bob := sin(march_phase * 7.0 + float(i) * 1.3) * 1.4
+			_draw_piece_shadow(spot.x, spot.y + 1.5, sprite_w)
 			draw_texture_rect(sprite, Rect2(Vector2(spot.x - sprite_w * 0.5, spot.y - sprite_h + bob), Vector2(sprite_w, sprite_h)), false)
 
 	func _draw_fork() -> void:
@@ -2261,13 +2272,14 @@ func _build_map_first_ui() -> void:
 		var chip_row := HBoxContainer.new()
 		chip_row.add_theme_constant_override("separation", 6)
 		chip.add_child(chip_row)
-		# The family are FACES now, not colored dots: little carte-de-visite
-		# medallions riding the ribbon like photographs in an album.
+		# The family are FACES now, not colored dots: 16-bit busts matching the
+		# marching sprites on the map — one character identity everywhere.
 		var portrait := TextureRect.new()
-		portrait.custom_minimum_size = Vector2(30, 40)
+		portrait.custom_minimum_size = Vector2(32, 32)
 		portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		var portrait_path := "res://assets/art/portraits/%s.png" % member_id
+		portrait.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		var portrait_path := "res://assets/sprites/busts/%s.png" % member_id
 		if ResourceLoader.exists(portrait_path):
 			portrait.texture = load(portrait_path) as Texture2D
 		chip_row.add_child(portrait)
