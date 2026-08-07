@@ -5184,6 +5184,11 @@ func _event_reward_ui() -> void:
 	# text buttons are retired.
 	if reward_overlay != null and reward_card_row != null:
 		reward_box.visible = false
+		# The overlay IS the reward screen — the sheet behind it goes quiet.
+		event_kicker.text = ""
+		event_title.text = ""
+		event_body.text = ""
+		event_hint.text = ""
 		for child in reward_card_row.get_children():
 			child.queue_free()
 		for i in reward_options.size():

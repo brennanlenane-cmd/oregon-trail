@@ -37,6 +37,7 @@ func _run() -> void:
 		await _snap("event_scene")
 	# March to the first fight (leg 3).
 	var guard := 0
+	var reward_snapped := false
 	while not game.encounter_active and guard < 30:
 		guard += 1
 		if game.pa_choice_active:
@@ -46,6 +47,9 @@ func _run() -> void:
 		elif game.shop_open:
 			game.probe_shop_leave.pressed.emit()
 		elif game.reward_pending:
+			if not reward_snapped:
+				reward_snapped = true
+				await _snap("reward_cards")
 			game.probe_reward_skip.pressed.emit()
 		elif game.event_active:
 			game.probe_event_b.pressed.emit()
