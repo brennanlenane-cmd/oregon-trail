@@ -289,11 +289,17 @@ const STOKE_RISK := 0.10  # per stoke, cumulative within a leg
 # The alternate is seeded per leg, so a shared trail seed shares its forks.
 const MAIN_ROAD := {"id": "main", "name": "THE MAIN TRAIL", "terms": "steady wheels"}
 const ALT_ROADS := [
-	{"id": "river", "name": "RIVER ROAD", "terms": "1 day quicker · the water may be bad", "days": -1, "sick_risk": 0.3},
-	{"id": "high", "name": "HIGH TRAIL", "terms": "+1 day · no ambush country", "days": 1, "safe": true},
-	{"id": "toll", "name": "TOLL ROAD", "terms": "$6 · saves a day", "days": -1, "toll": 6},
-	{"id": "hunting", "name": "HUNTING TRAIL", "terms": "+6 supplies · wilder country", "days": 1, "supplies": 6, "danger": 0.25}
+	{"id": "river", "name": "RIVER ROAD", "terms": "-1 DAY · 30% SICK", "days": -1, "sick_risk": 0.3},
+	{"id": "high", "name": "HIGH TRAIL", "terms": "+1 DAY · NO AMBUSH", "days": 1, "safe": true},
+	{"id": "toll", "name": "TOLL ROAD", "terms": "$6 · -1 DAY", "days": -1, "toll": 6},
+	{"id": "hunting", "name": "HUNTING TRAIL", "terms": "+6 SUPPLIES · WILDER", "days": 1, "supplies": 6, "danger": 0.25}
 ]
+# One color per tag, everywhere — the chip on the card, forever legible.
+const TAG_COLORS := {
+	"gun": Color("#6b1a10"), "rope": Color("#8a6b3a"), "blade": Color("#44505c"),
+	"fire": Color("#b3541e"), "care": Color("#2e6b45"), "trail": Color("#3d5a4e"),
+	"goods": Color("#7a5a2e"), "kin": Color("#a02818")
+}
 const CONDITION_NAMES := ["HEALTHY", "HURT", "SICK"]
 const CONDITION_COLORS := ["#2e6b45", "#9a6b00", "#a02818"]
 const ROUTE_STOPS := [
@@ -302,21 +308,21 @@ const ROUTE_STOPS := [
 	"Blue Mountains", "The Dalles", "Barlow Pass", "Oregon City"
 ]
 const EVENTS := [
-	{"title": "A Clear Morning", "body": "The river crossing looks deep, but a scout knows a safer ford.", "card_type": "scout", "card_label": "a scout card", "a": "Use the scout's ford", "ad": "Discard a scout card  •  Supplies -2  •  Safe passage", "a_fx": {"supplies": -2}, "b": "Walk around the crossing", "bd": "Free leave  •  Days +1", "art": "res://assets/art/scene/event-morning.png"},
-	{"title": "A Trading Post", "body": "A trader admires the wagon's careful records and offers a bargain.", "card_type": "supply", "card_label": "a supply card", "a": "Trade from the ledger", "ad": "Discard a supply card  •  Supplies +6", "a_fx": {"supplies": 6}, "b": "Pass the post", "bd": "Free leave  •  Days +1", "art": "res://assets/art/scene/event-camp.png"},
-	{"title": "Night on the Prairie", "body": "The wind rises. Good stories could keep the party together.", "card_type": "morale", "card_label": "a morale card", "a": "Tell the right story", "ad": "Discard a morale card  •  Morale +8", "a_fx": {"morale": 8}, "b": "Sleep under the wagon", "bd": "Free leave  •  Days +1", "art": "res://assets/art/scene/event-camp.png"},
-	{"title": "The Washed-Out Road", "body": "Spring rain has erased the road ahead. A map can reveal a shortcut.", "card_type": "scout", "card_label": "a scout card", "a": "Read the old map", "ad": "Discard a scout card  •  Days -1", "a_fx": {"days": -1}, "b": "Take the long way", "bd": "Free leave  •  Days +1", "art": "res://assets/art/scene/event-morning.png"},
-	{"title": "A Broken Axle", "body": "The wagon groans at the next rut. Supplies can buy a careful repair.", "card_type": "supply", "card_label": "a supply card", "a": "Spend the spare timber", "ad": "Discard a supply card  •  Supplies +3", "a_fx": {"supplies": 3}, "b": "Limp onward", "bd": "Free leave  •  Days +1", "art": "res://assets/art/scene/event-breakdown.png"},
-	{"title": "A Lonely Camp", "body": "The party is tired. A warm meal and a shared tale restore hope.", "card_type": "morale", "card_label": "a morale card", "a": "Gather everyone close", "ad": "Discard a morale card  •  Morale +6", "a_fx": {"morale": 6}, "b": "Keep watch in silence", "bd": "Free leave  •  Days +1", "art": "res://assets/art/scene/event-camp.png"},
-	{"title": "The Mountain Pass", "body": "The climb is steep. A scout can spot the safest switchback.", "card_type": "scout", "card_label": "a scout card", "a": "Find the switchback", "ad": "Discard a scout card  •  Supplies -2  •  Morale +3", "a_fx": {"supplies": -2, "morale": 3}, "b": "Climb by the markers", "bd": "Free leave  •  Days +1", "art": "res://assets/art/scene/event-breakdown.png"},
-	{"title": "The Last Mile", "body": "The valley opens below. One final bit of preparation will steady the wagon.", "card_type": "supply", "card_label": "a supply card", "a": "Secure the wagon", "ad": "Discard a supply card  •  Supplies +4  •  Morale +2", "a_fx": {"supplies": 4, "morale": 2}, "b": "Trust the road", "bd": "Free leave  •  Days +1", "art": "res://assets/art/scene/event-morning.png"},
-	{"title": "Bad Water", "body": "The creek runs cloudy and smells wrong. Boiling every drop costs time and fuel.", "card_type": "supply", "card_label": "a supply card", "a": "Boil everything", "ad": "Discard a supply card  •  Supplies -2  •  Everyone stays well", "a_fx": {"supplies": -2}, "b": "Drink and push on", "bd": "Free leave  •  Days +1  •  30% chance: a family member falls sick", "b_risk": 0.3, "art": "res://assets/art/river-crossing.jpg"},
-	{"title": "The Bison Herd", "body": "The prairie turns brown and moving — bison past counting. A clean hunt would fill every barrel in the wagon.", "card_type": "scout", "card_label": "a scout card", "a": "Ride into the hunt", "ad": "Discard a scout card  •  Supplies +10  •  Morale +3", "a_fx": {"supplies": 10, "morale": 3}, "b": "Let the herd pass", "bd": "Free leave  •  Days +1", "art": "res://assets/art/bison-hunt.jpg"},
-	{"title": "Prairie Fire", "body": "Smoke on the horizon, then a line of orange running with the wind. There is a burned-over stretch that might be crossed — hot, but bare of fuel.", "card_type": "scout", "card_label": "a scout card", "a": "Cross the black ground", "ad": "Discard a scout card  •  Wagon -8  •  No lost days", "a_fx": {"wagon": -8}, "b": "Swing wide around the burn", "bd": "Free leave  •  Days +1", "art": "res://assets/art/prairie-fire.jpg"},
-	{"title": "The Snake-Oil Man", "body": "A gleaming wagon, a waxed mustache, and a bottle that allegedly cures fever, gout, and cowardice. He'll trade for supplies.", "card_type": "supply", "card_label": "a supply card", "a": "Buy the tonic", "ad": "Discard a supply card  •  Supplies -3  •  One hurt or sick member recovers a step", "a_fx": {"supplies": -3, "rest": 1}, "b": "Tip your hat and move on", "bd": "Free leave  •  Days +1", "art": "res://assets/art/whiskey-ad.png"},
-	{"title": "Gold Fever", "body": "A man rides east shouting that the creeks of California run yellow. Half the camp is repacking. The road to Oregon suddenly looks longer.", "card_type": "morale", "card_label": "a morale card", "a": "Steady the party", "ad": "Discard a morale card  •  Morale +6  •  The family remembers why it's Oregon", "a_fx": {"morale": 6}, "b": "Let them talk it out", "bd": "Free leave  •  Days +1  •  Morale -3", "b_fx": {"morale": -3}, "art": "res://assets/art/gold-panning.jpg"},
-	{"title": "Cards at the Post", "body": "Teamsters at the trading post deal a friendly hand. The pot is groceries, mostly. 'Friendly,' they said.", "card_type": "morale", "card_label": "a morale card", "a": "Play a few hands", "ad": "Discard a morale card  •  Supplies +5  •  Morale +2", "a_fx": {"supplies": 5, "morale": 2}, "b": "Watch from the doorway", "bd": "Free leave  •  Days +1", "art": "res://assets/art/saloon-cards.jpg"},
-	{"title": "The Circling Birds", "body": "Vultures wheel over something ahead. It turns out to be an abandoned wagon — broken axle, and a note weighted with a river stone: 'Take what you need.'", "card_type": "scout", "card_label": "a scout card", "a": "Search it carefully", "ad": "Discard a scout card  •  Supplies +6", "a_fx": {"supplies": 6}, "b": "Pass with hats off", "bd": "Free leave  •  Days +1  •  Morale +2 — some things matter more", "b_fx": {"morale": 2}, "art": "res://assets/art/vulture.jpg"}
+	{"title": "A Clear Morning", "pay": "-2 SUPPLIES · SAFE FORD", "pass": "+1 DAY", "body": "The river crossing looks deep, but a scout knows a safer ford.", "card_type": "scout", "card_label": "a scout card", "a": "Use the scout's ford", "ad": "Discard a scout card  •  Supplies -2  •  Safe passage", "a_fx": {"supplies": -2}, "b": "Walk around the crossing", "bd": "Free leave  •  Days +1", "art": "res://assets/art/scene/event-morning.png"},
+	{"title": "A Trading Post", "pay": "+6 SUPPLIES", "pass": "+1 DAY", "body": "A trader admires the wagon's careful records and offers a bargain.", "card_type": "supply", "card_label": "a supply card", "a": "Trade from the ledger", "ad": "Discard a supply card  •  Supplies +6", "a_fx": {"supplies": 6}, "b": "Pass the post", "bd": "Free leave  •  Days +1", "art": "res://assets/art/scene/event-camp.png"},
+	{"title": "Night on the Prairie", "pay": "+8 MORALE", "pass": "+1 DAY", "body": "The wind rises. Good stories could keep the party together.", "card_type": "morale", "card_label": "a morale card", "a": "Tell the right story", "ad": "Discard a morale card  •  Morale +8", "a_fx": {"morale": 8}, "b": "Sleep under the wagon", "bd": "Free leave  •  Days +1", "art": "res://assets/art/scene/event-camp.png"},
+	{"title": "The Washed-Out Road", "pay": "-1 DAY", "pass": "+1 DAY", "body": "Spring rain has erased the road ahead. A map can reveal a shortcut.", "card_type": "scout", "card_label": "a scout card", "a": "Read the old map", "ad": "Discard a scout card  •  Days -1", "a_fx": {"days": -1}, "b": "Take the long way", "bd": "Free leave  •  Days +1", "art": "res://assets/art/scene/event-morning.png"},
+	{"title": "A Broken Axle", "pay": "+3 SUPPLIES", "pass": "+1 DAY", "body": "The wagon groans at the next rut. Supplies can buy a careful repair.", "card_type": "supply", "card_label": "a supply card", "a": "Spend the spare timber", "ad": "Discard a supply card  •  Supplies +3", "a_fx": {"supplies": 3}, "b": "Limp onward", "bd": "Free leave  •  Days +1", "art": "res://assets/art/scene/event-breakdown.png"},
+	{"title": "A Lonely Camp", "pay": "+6 MORALE", "pass": "+1 DAY", "body": "The party is tired. A warm meal and a shared tale restore hope.", "card_type": "morale", "card_label": "a morale card", "a": "Gather everyone close", "ad": "Discard a morale card  •  Morale +6", "a_fx": {"morale": 6}, "b": "Keep watch in silence", "bd": "Free leave  •  Days +1", "art": "res://assets/art/scene/event-camp.png"},
+	{"title": "The Mountain Pass", "pay": "-2 SUPPLIES · +3 MORALE", "pass": "+1 DAY", "body": "The climb is steep. A scout can spot the safest switchback.", "card_type": "scout", "card_label": "a scout card", "a": "Find the switchback", "ad": "Discard a scout card  •  Supplies -2  •  Morale +3", "a_fx": {"supplies": -2, "morale": 3}, "b": "Climb by the markers", "bd": "Free leave  •  Days +1", "art": "res://assets/art/scene/event-breakdown.png"},
+	{"title": "The Last Mile", "pay": "+4 SUPPLIES · +2 MORALE", "pass": "+1 DAY", "body": "The valley opens below. One final bit of preparation will steady the wagon.", "card_type": "supply", "card_label": "a supply card", "a": "Secure the wagon", "ad": "Discard a supply card  •  Supplies +4  •  Morale +2", "a_fx": {"supplies": 4, "morale": 2}, "b": "Trust the road", "bd": "Free leave  •  Days +1", "art": "res://assets/art/scene/event-morning.png"},
+	{"title": "Bad Water", "pay": "-2 SUPPLIES · NO SICKNESS", "pass": "+1 DAY · 30% SICK", "body": "The creek runs cloudy and smells wrong. Boiling every drop costs time and fuel.", "card_type": "supply", "card_label": "a supply card", "a": "Boil everything", "ad": "Discard a supply card  •  Supplies -2  •  Everyone stays well", "a_fx": {"supplies": -2}, "b": "Drink and push on", "bd": "Free leave  •  Days +1  •  30% chance: a family member falls sick", "b_risk": 0.3, "art": "res://assets/art/river-crossing.jpg"},
+	{"title": "The Bison Herd", "pay": "+10 SUPPLIES · +3 MORALE", "pass": "+1 DAY", "body": "The prairie turns brown and moving — bison past counting. A clean hunt would fill every barrel in the wagon.", "card_type": "scout", "card_label": "a scout card", "a": "Ride into the hunt", "ad": "Discard a scout card  •  Supplies +10  •  Morale +3", "a_fx": {"supplies": 10, "morale": 3}, "b": "Let the herd pass", "bd": "Free leave  •  Days +1", "art": "res://assets/art/bison-hunt.jpg"},
+	{"title": "Prairie Fire", "pay": "WAGON -8 · NO LOST DAY", "pass": "+1 DAY", "body": "Smoke on the horizon, then a line of orange running with the wind. There is a burned-over stretch that might be crossed — hot, but bare of fuel.", "card_type": "scout", "card_label": "a scout card", "a": "Cross the black ground", "ad": "Discard a scout card  •  Wagon -8  •  No lost days", "a_fx": {"wagon": -8}, "b": "Swing wide around the burn", "bd": "Free leave  •  Days +1", "art": "res://assets/art/prairie-fire.jpg"},
+	{"title": "The Snake-Oil Man", "pay": "-3 SUPPLIES · CURE 1 STEP", "pass": "+1 DAY", "body": "A gleaming wagon, a waxed mustache, and a bottle that allegedly cures fever, gout, and cowardice. He'll trade for supplies.", "card_type": "supply", "card_label": "a supply card", "a": "Buy the tonic", "ad": "Discard a supply card  •  Supplies -3  •  One hurt or sick member recovers a step", "a_fx": {"supplies": -3, "rest": 1}, "b": "Tip your hat and move on", "bd": "Free leave  •  Days +1", "art": "res://assets/art/whiskey-ad.png"},
+	{"title": "Gold Fever", "pay": "+6 MORALE", "pass": "+1 DAY · -3 MORALE", "body": "A man rides east shouting that the creeks of California run yellow. Half the camp is repacking. The road to Oregon suddenly looks longer.", "card_type": "morale", "card_label": "a morale card", "a": "Steady the party", "ad": "Discard a morale card  •  Morale +6  •  The family remembers why it's Oregon", "a_fx": {"morale": 6}, "b": "Let them talk it out", "bd": "Free leave  •  Days +1  •  Morale -3", "b_fx": {"morale": -3}, "art": "res://assets/art/gold-panning.jpg"},
+	{"title": "Cards at the Post", "pay": "+5 SUPPLIES · +2 MORALE", "pass": "+1 DAY", "body": "Teamsters at the trading post deal a friendly hand. The pot is groceries, mostly. 'Friendly,' they said.", "card_type": "morale", "card_label": "a morale card", "a": "Play a few hands", "ad": "Discard a morale card  •  Supplies +5  •  Morale +2", "a_fx": {"supplies": 5, "morale": 2}, "b": "Watch from the doorway", "bd": "Free leave  •  Days +1", "art": "res://assets/art/saloon-cards.jpg"},
+	{"title": "The Circling Birds", "pay": "+6 SUPPLIES", "pass": "+1 DAY · +2 MORALE", "body": "Vultures wheel over something ahead. It turns out to be an abandoned wagon — broken axle, and a note weighted with a river stone: 'Take what you need.'", "card_type": "scout", "card_label": "a scout card", "a": "Search it carefully", "ad": "Discard a scout card  •  Supplies +6", "a_fx": {"supplies": 6}, "b": "Pass with hats off", "bd": "Free leave  •  Days +1  •  Morale +2 — some things matter more", "b_fx": {"morale": 2}, "art": "res://assets/art/vulture.jpg"}
 ]
 const REWARD_POOL := ["river_guide", "wagon_repair", "steady_nerve", "trail_map", "wainwright", "rifle", "medicine"]
 const ENCOUNTERS := [
@@ -415,6 +421,14 @@ var event_kicker: Label
 var event_title: Label
 var event_body: Label
 var event_hint: Label
+# Hazard Gate: the event is a physical obstacle — a card slot to feed, terms
+# stamped beside it, and a FORGE AHEAD escape. No prose.
+var hazard_row: HBoxContainer
+var hazard_slot: PanelContainer
+var hazard_slot_label: Label
+var hazard_slot_sub: Label
+var hazard_pay_label: Label
+var clear_stamp: Label
 var outcome_label: Label
 var encounter_art: TextureRect
 var encounter_health_label: Label
@@ -609,6 +623,70 @@ func _zone_drop(_at: Vector2, data: Variant) -> void:
 	if drop_highlight != null:
 		drop_highlight.visible = false
 	_on_card_pressed(int((data as Dictionary)["card_index"]))
+
+# Clicking the hazard socket feeds it the first matching card in hand —
+# the tactile shortcut for players who don't drag.
+func _on_hazard_slot_input(event: InputEvent) -> void:
+	if not (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT):
+		return
+	if not event_active or encounter_active:
+		return
+	if current_event_index < 0 or current_event_index >= EVENTS.size():
+		return
+	var index := _find_card_in_hand(str(EVENTS[current_event_index]["card_type"]))
+	if index >= 0:
+		_on_card_pressed(index)
+
+# IMPACT JUICE: the table jolts and parchment dust kicks up when something
+# heavy lands — a played card, a stamped verdict, a hit taken. This is what
+# turns clicking links into slapping wooden blocks on a real table.
+var shake_tween: Tween
+
+func _shake_screen(strength: float = 3.0) -> void:
+	if dynamic_content_layer == null:
+		return
+	if shake_tween != null and shake_tween.is_valid():
+		shake_tween.kill()
+		dynamic_content_layer.position = Vector2.ZERO
+	shake_tween = create_tween()
+	var jolt := Vector2(ui_rng.randf_range(-1.0, 1.0), ui_rng.randf_range(-0.6, 0.6)).normalized() * strength
+	shake_tween.tween_property(dynamic_content_layer, "position", jolt, 0.03)
+	shake_tween.tween_property(dynamic_content_layer, "position", -jolt * 0.6, 0.05)
+	shake_tween.tween_property(dynamic_content_layer, "position", Vector2.ZERO, 0.08).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
+func _burst_dust(at_global: Vector2) -> void:
+	if dynamic_content_layer == null:
+		return
+	for i in 7:
+		var fleck := ColorRect.new()
+		var shade := ui_rng.randf_range(0.78, 0.92)
+		fleck.color = Color(shade, shade * 0.95, shade * 0.8, 0.85)
+		var side := ui_rng.randf_range(2.0, 5.0)
+		fleck.size = Vector2(side, side)
+		fleck.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		fleck.top_level = true
+		fleck.global_position = at_global + Vector2(ui_rng.randf_range(-8, 8), ui_rng.randf_range(-4, 4))
+		dynamic_content_layer.add_child(fleck)
+		var flight := Vector2(ui_rng.randf_range(-46, 46), ui_rng.randf_range(-58, -18))
+		var tween := create_tween()
+		tween.set_parallel(true)
+		tween.tween_property(fleck, "global_position", fleck.global_position + flight, 0.42).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		tween.tween_property(fleck, "modulate", Color(1, 1, 1, 0), 0.42)
+		tween.chain().tween_callback(fleck.queue_free)
+
+func _slam_clear_stamp() -> void:
+	if clear_stamp == null:
+		return
+	clear_stamp.visible = true
+	clear_stamp.modulate = Color(1, 1, 1, 0)
+	clear_stamp.scale = Vector2(2.4, 2.4)
+	var tween := create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(clear_stamp, "scale", Vector2.ONE, 0.16).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	tween.tween_property(clear_stamp, "modulate", Color.WHITE, 0.12)
+	tween.chain().tween_interval(0.55)
+	tween.chain().tween_property(clear_stamp, "modulate", Color(1, 1, 1, 0), 0.3)
+	tween.chain().tween_callback(func() -> void: clear_stamp.visible = false)
 
 func _update_hand_tuck() -> void:
 	# CARD PHASE state: the hand doesn't sit out all game. It rides low with
@@ -2483,6 +2561,43 @@ func _build_map_first_ui() -> void:
 	encounter_art.visible = false
 	_print_onto_paper(encounter_art)
 	brass_rule.add_child(encounter_art)
+	# THE HAZARD GATE: instead of prose, the event is a slot demanding a card.
+	# Drop (or click) a matching card into the socket to clear the hazard;
+	# the terms hang beside it like a price tag.
+	hazard_row = HBoxContainer.new()
+	hazard_row.add_theme_constant_override("separation", 14)
+	hazard_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	hazard_row.visible = false
+	event_box.add_child(hazard_row)
+	hazard_slot = PanelContainer.new()
+	hazard_slot.custom_minimum_size = Vector2(112, 92)
+	var socket_style := StyleBoxFlat.new()
+	socket_style.bg_color = Color(0.93, 0.88, 0.76, 0.10)
+	socket_style.border_color = Color("#b18a45")
+	socket_style.set_border_width_all(2)
+	socket_style.set_corner_radius_all(4)
+	socket_style.content_margin_left = 8.0
+	socket_style.content_margin_right = 8.0
+	socket_style.content_margin_top = 8.0
+	socket_style.content_margin_bottom = 8.0
+	hazard_slot.add_theme_stylebox_override("panel", socket_style)
+	hazard_slot.mouse_filter = Control.MOUSE_FILTER_STOP
+	hazard_slot.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	hazard_slot.set_drag_forwarding(Callable(), _zone_can_drop, _zone_drop)
+	hazard_slot.gui_input.connect(_on_hazard_slot_input)
+	hazard_row.add_child(hazard_slot)
+	var socket_box := VBoxContainer.new()
+	socket_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	hazard_slot.add_child(socket_box)
+	hazard_slot_label = _label("SCOUT", 20, Color("#a02818"))
+	hazard_slot_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	socket_box.add_child(hazard_slot_label)
+	hazard_slot_sub = _label("DROP CARD", 9, Color("#8a7a5c"))
+	hazard_slot_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	socket_box.add_child(hazard_slot_sub)
+	hazard_pay_label = _label("→  +6 SUPPLIES", 15, Color("#1f5c33"))
+	hazard_pay_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	hazard_row.add_child(hazard_pay_label)
 	encounter_health_label = _label("", 11, Color("#6b3a1e"))
 	encounter_health_label.visible = false
 	event_box.add_child(encounter_health_label)
@@ -2534,6 +2649,17 @@ func _build_map_first_ui() -> void:
 	return_to_camp_button.add_theme_color_override("font_hover_color", _themed_text(Color("#221c14")))
 	return_to_camp_button.pressed.connect(_return_to_camp)
 	event_box.add_child(return_to_camp_button)
+	# The woodblock verdict: a big red CLEARED slams over the sheet when a
+	# card answers the hazard. Cheap, physical, zero words of explanation.
+	clear_stamp = _label("CLEARED", 52, Color("#a02818"))
+	clear_stamp.add_theme_font_override("font", font_display)
+	clear_stamp.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	clear_stamp.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	clear_stamp.rotation_degrees = -8.0
+	clear_stamp.pivot_offset = Vector2(215, 40)
+	clear_stamp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	clear_stamp.visible = false
+	map_event_sheet.add_child(clear_stamp)
 
 	var hand_panel := PanelContainer.new()
 	hand_panel.name = "PhysicalHandOverlay"
@@ -2600,7 +2726,7 @@ func _build_map_first_ui() -> void:
 	discard_pile_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	discard_stack.add_child(discard_pile_label)
 	hand_header.add_child(discard_stack)
-	card_status = _label("Click plays a card · right-click discards it.", 10, Color("#6b5b41"))
+	card_status = _label("PLAY: CLICK · STOKE KIN: RIGHT-CLICK (+1 GRIT)", 10, Color("#6b5b41"))
 	hand_box.add_child(card_status)
 	# The held hand: cards sit tucked into the bottom edge of the screen like a
 	# fan of paper in your fist. Hover slides one up to read it whole (StS-style).
@@ -3227,7 +3353,7 @@ func _build_deck_panel(page: VBoxContainer) -> void:
 	hand_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hand_container.add_theme_constant_override("separation", 5)
 	box.add_child(hand_container)
-	card_status = _label("Click plays a card · right-click discards it.", 10, Color("#6b5b41"))
+	card_status = _label("PLAY: CLICK · STOKE KIN: RIGHT-CLICK (+1 GRIT)", 10, Color("#6b5b41"))
 	box.add_child(card_status)
 	_rebuild_hand_ui()
 	_wire_hand_card_juice()
@@ -3603,15 +3729,27 @@ func _make_card_face(card_id: String) -> PanelContainer:
 	text.max_lines_visible = 3
 	text.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	box.add_child(text)
-	# Tags as a quiet letterpress footer — what the card IS, for combo-reading.
+	# Tags as inked stamp chips — what the card IS, read at a glance. Each tag
+	# keeps one color everywhere so combo lines ("+2 PER GUN") match the chip.
 	var tags: Array = card.get("tags", [])
 	if not tags.is_empty():
-		var tag_words := PackedStringArray()
+		var chip_row := HBoxContainer.new()
+		chip_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		chip_row.add_theme_constant_override("separation", 5)
+		box.add_child(chip_row)
 		for tag in tags:
-			tag_words.append(str(tag).to_upper())
-		var tag_line := _label(" · ".join(tag_words), 9, Color("#8d4b32"))
-		tag_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		box.add_child(tag_line)
+			var chip := PanelContainer.new()
+			var chip_style := _make_style(TAG_COLORS.get(str(tag), Color("#5a4932")), Color(0, 0, 0, 0.35), 3, 1)
+			chip_style.content_margin_left = 7.0
+			chip_style.content_margin_right = 7.0
+			chip_style.content_margin_top = 1.0
+			chip_style.content_margin_bottom = 1.0
+			chip.add_theme_stylebox_override("panel", chip_style)
+			chip.rotation_degrees = ui_rng.randf_range(-2.0, 2.0)
+			var chip_text := _label(str(tag).to_upper(), 9, Color("#f2e8d2"))
+			chip_text.add_theme_font_override("font", font_display)
+			chip.add_child(chip_text)
+			chip_row.add_child(chip)
 	# The visual never touches the mouse — the slot beneath it does.
 	_ignore_mouse_tree(panel)
 	return panel
@@ -3768,7 +3906,8 @@ func _on_card_pressed(index: int) -> void:
 				_register_bond_play(payer)
 			_apply_effect_dictionary(event["a_fx"])
 			_play_sfx("stamp")
-			_float_combo("THE CARD ANSWERS")
+			_slam_clear_stamp()
+			_shake_screen()
 			_resolve_event("CARD PLAYED  ·  " + str(event["ad"]))
 			_sync_and_refresh()
 			return
@@ -3789,6 +3928,9 @@ func _on_card_pressed(index: int) -> void:
 	card_play_count += 1
 	_play_sfx("card")
 	_animate_card_play()
+	_shake_screen(2.5)
+	if index < hand_slots.size() and hand_slots[index] != null:
+		_burst_dust(hand_slots[index].get_global_rect().get_center())
 	var member_id := str(CARDS[card_id].get("family", ""))
 	if member_id != "" and not CARDS[card_id].get("memory", false):
 		_register_bond_play(member_id)
@@ -3803,7 +3945,7 @@ func _on_card_pressed(index: int) -> void:
 		_show_bark(member_id, "memory")
 	if encounter_active and not pa_choice_active and encounter_health <= 0:
 		_resolve_encounter()
-	card_status.text = "%s played. %s" % [_card_display_name(card_id), "The enemy waits for the BRACE." if encounter_active else "Discarded after resolving; Grit now %d." % grit]
+	card_status.text = "%s  ·  GRIT %d" % [_card_display_name(card_id).to_upper(), grit]
 	_sync_and_refresh()
 
 func _register_bond_play(member_id: String) -> void:
@@ -4326,6 +4468,7 @@ func _enemy_turn() -> void:
 		if incoming >= 8:
 			_injure_random_member()
 		_animate_encounter_feedback(true)
+		_shake_screen(5.0)
 	encounter_turn += 1
 	encounter_threat = int(encounter["damage"]) + _threat_bonus() + encounter_turn - 1
 	if morale <= 0:
@@ -5271,6 +5414,8 @@ func _hide_encounter_ui() -> void:
 	encounter_health_label.visible = false
 	encounter_intent_label.visible = false
 	encounter_stake_label.visible = false
+	if hazard_row != null:
+		hazard_row.visible = false
 
 func _event_idle_ui() -> void:
 	_hide_encounter_ui()
@@ -5301,6 +5446,8 @@ func _event_encounter_ui() -> void:
 	var encounter: Dictionary = ENCOUNTERS[encounter_index]
 	choice_a.visible = false
 	choice_b.visible = false
+	if hazard_row != null:
+		hazard_row.visible = false
 	encounter_art.visible = false
 	if encounter_art_plate != null:
 		encounter_art_plate.visible = false
@@ -5311,11 +5458,12 @@ func _event_encounter_ui() -> void:
 	encounter_stake_label.visible = false
 	event_kicker.text = "%s  →  %s" % [str(ROUTE_STOPS[route_index]).to_upper(), str(ROUTE_STOPS[min(route_index + 1, ROUTE_STOPS.size() - 1)]).to_upper()]
 	event_title.text = str(encounter["title"]).to_upper()
-	event_body.text = encounter["body"]
+	# Zero prose in a fight — the stage carries every number that matters.
+	event_body.text = ""
 	_stage_update_readouts()
 	event_hint.text = ""
 	continue_button.visible = true
-	continue_button.text = "BRACE FOR IT  ·  take the %d hit, refill Grit" % maxi(0, encounter_threat - encounter_block)
+	continue_button.text = "BRACE  ·  TAKE %d" % maxi(0, encounter_threat - encounter_block)
 	if not _has_playable_card() or grit == 0:
 		continue_button.add_theme_stylebox_override("normal", _make_style(Color("#a02818"), Color("#6b1a10"), 9, 2))
 		continue_button.add_theme_color_override("font_color", Color("#f6efdc"))
@@ -5333,26 +5481,27 @@ func _event_active_ui() -> void:
 		encounter_art.visible = true
 		if encounter_art_plate != null:
 			encounter_art_plate.visible = true
-	# Card-driven: option A is not a button. Playing a matching card from the
-	# hand IS the choice; the one button here is walking away.
+	# HAZARD GATE: no prose, no A-button. The sheet shows the obstacle (art),
+	# a socket demanding a card type, the payoff beside it, and one stamped
+	# escape route. Five seconds to read, one tactile decision.
 	choice_a.visible = false
 	choice_b.visible = true
-	var lean := ""
-	if event_hint_member != "" and party[event_hint_member]["alive"]:
-		lean = "  ·  ✦ %s leans toward %s" % [party[event_hint_member]["name"], "paying the card" if event_hint_option == "a" else "moving on"]
-	choice_b.text = "MOVE ON  ·  %s" % str(event["bd"]).replace("Free leave  •  ", "")
-	choice_b.tooltip_text = "Costs a day of travel. The slow day lets one hurt or sick member recover a step."
+	choice_b.text = "FORGE AHEAD  ·  %s" % str(event.get("pass", "+1 DAY"))
+	choice_b.tooltip_text = "Take the slow way. One hurt or sick member recovers a step."
 	event_kicker.text = "ON THE ROAD TO %s" % str(ROUTE_STOPS[min(route_index + 1, ROUTE_STOPS.size() - 1)]).to_upper()
 	event_title.text = str(event["title"]).to_upper()
-	event_body.text = str(event["body"]) + lean
-	var ask_terms := str(event["ad"])
-	var terms_split := ask_terms.split("•", false, 1)
-	if terms_split.size() > 1:
-		ask_terms = terms_split[1].strip_edges()
-	if _find_card_in_hand(event["card_type"]) >= 0:
-		event_hint.text = "PLAY %s  →  %s" % [str(event["card_label"]).to_upper(), ask_terms]
-	else:
-		event_hint.text = "Not holding %s — move on." % event["card_label"]
+	event_body.text = ""
+	var holding := _find_card_in_hand(event["card_type"]) >= 0
+	if hazard_row != null:
+		hazard_row.visible = true
+		hazard_slot_label.text = str(event["card_type"]).to_upper()
+		hazard_slot_sub.text = "DROP CARD" if holding else "NONE IN HAND"
+		hazard_pay_label.text = "→  %s" % str(event.get("pay", ""))
+		var socket := hazard_slot.get_theme_stylebox("panel") as StyleBoxFlat
+		if socket != null:
+			socket.border_color = Color("#a02818") if holding else Color(0.55, 0.47, 0.33, 0.5)
+		hazard_slot_label.add_theme_color_override("font_color", Color("#a02818") if holding else Color(0.42, 0.36, 0.28))
+	event_hint.text = ""
 	continue_button.visible = false
 
 func _event_reward_ui() -> void:
