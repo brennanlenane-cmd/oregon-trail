@@ -1354,7 +1354,7 @@ func _place_hero_piece(hero: Control, piece: Control, left: float, right: float,
 	piece.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hero.add_child(piece)
 
-func _add_hero_sprite(hero: Control, sprite_name: String, left: float, right: float, top: float, bottom: float, flip: bool) -> void:
+func _add_hero_sprite(hero: Control, sprite_name: String, left: float, right: float, top: float, bottom: float, flip: bool, tint: Color = Color.WHITE) -> void:
 	var sprite_path := "res://assets/sprites/family/%s.png" % sprite_name
 	if not ResourceLoader.exists(sprite_path):
 		return
@@ -1364,6 +1364,7 @@ func _add_hero_sprite(hero: Control, sprite_name: String, left: float, right: fl
 	piece.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	piece.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	piece.flip_h = flip
+	piece.modulate = tint
 	_place_hero_piece(hero, piece, left, right, top, bottom)
 
 func _open_manifest() -> void:
@@ -1405,11 +1406,29 @@ func _build_camp_overlay() -> void:
 	camp_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	camp_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	camp_art.texture = load(_ink_art("res://assets/art/campfire.jpg")) as Texture2D
-	# Dark theme: the campfire engraving glows faintly out of the dark room
-	# instead of washing the page cream.
-	camp_art.modulate = Color(0.30, 0.28, 0.26, 1.0) if UI_DARK else Color(0.98, 0.90, 0.74, 1.0)
+	# Bright enough to READ as a forest, warm-shifted toward firelight;
+	# the vignette below pushes the edges back into night.
+	camp_art.modulate = Color(0.46, 0.40, 0.33, 1.0) if UI_DARK else Color(0.98, 0.90, 0.74, 1.0)
 	camp_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	camp_overlay.add_child(camp_art)
+	if UI_DARK:
+		# Night presses in from the edges; the middle stays fire-lit.
+		var vignette := TextureRect.new()
+		vignette.name = "CampVignette"
+		vignette.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var vignette_grad := Gradient.new()
+		# add_point re-sorts stops and shifts indices — assign whole arrays.
+		vignette_grad.offsets = PackedFloat32Array([0.0, 0.62, 1.0])
+		vignette_grad.colors = PackedColorArray([Color(0, 0, 0, 0.0), Color(0, 0, 0, 0.18), Color(0.02, 0.02, 0.03, 0.9)])
+		var vignette_tex := GradientTexture2D.new()
+		vignette_tex.gradient = vignette_grad
+		vignette_tex.fill = GradientTexture2D.FILL_RADIAL
+		vignette_tex.fill_from = Vector2(0.5, 0.55)
+		vignette_tex.fill_to = Vector2(1.02, 0.55)
+		vignette.texture = vignette_tex
+		vignette.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		camp_overlay.add_child(vignette)
 	var camp_wash := ColorRect.new()
 	camp_wash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	camp_wash.color = Color(0.07, 0.07, 0.08, 0.55) if UI_DARK else Color(0.93, 0.89, 0.78, 0.58)
@@ -1432,51 +1451,69 @@ func _build_camp_overlay() -> void:
 	var masthead := _label("THE LONG TRAIL", 58, Color("#a02818"))
 	masthead.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	masthead_box.add_child(masthead)
-	var mast_sub := _label("INDEPENDENCE, MISSOURI  ·  SPRING, 1848", 12, Color("#a49d90"))
+	var mast_sub := _label("—  AN OREGON TRAIL DECKBUILDER  ·  1848  —", 12, Color("#b18a45"))
 	mast_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	masthead_box.add_child(mast_sub)
 	# The hero: pixel family gathered at a fire in front of the dark engraving.
 	var hero := Control.new()
 	hero.name = "CampfireHero"
 	hero.set_anchors_preset(Control.PRESET_FULL_RECT)
-	hero.anchor_left = 0.14
-	hero.anchor_right = 0.86
-	hero.anchor_top = 0.26
-	hero.anchor_bottom = 0.80
+	hero.anchor_left = 0.16
+	hero.anchor_right = 0.84
+	hero.anchor_top = 0.22
+	hero.anchor_bottom = 0.72
 	hero.offset_left = 0.0
 	hero.offset_right = 0.0
 	hero.offset_top = 0.0
 	hero.offset_bottom = 0.0
 	hero.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	camp_title_layer.add_child(hero)
+	# Firelit ground: a warm pool the whole gathering stands in.
+	var ground_pool := TextureRect.new()
+	var pool_grad := Gradient.new()
+	pool_grad.set_color(0, Color(0.88, 0.56, 0.28, 0.22))
+	pool_grad.set_color(1, Color(0.88, 0.5, 0.2, 0.0))
+	var pool_tex := GradientTexture2D.new()
+	pool_tex.gradient = pool_grad
+	pool_tex.fill = GradientTexture2D.FILL_RADIAL
+	pool_tex.fill_from = Vector2(0.5, 0.5)
+	pool_tex.fill_to = Vector2(1.0, 0.5)
+	ground_pool.texture = pool_tex
+	ground_pool.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_place_hero_piece(hero, ground_pool, 0.24, 0.88, 0.80, 1.10)
+	# The fire's light, big and honest — this scene has one light source.
 	var fire_glow := TextureRect.new()
 	var glow_grad := Gradient.new()
-	glow_grad.set_color(0, Color(1.0, 0.72, 0.35, 0.34))
-	glow_grad.set_color(1, Color(1.0, 0.6, 0.2, 0.0))
+	glow_grad.offsets = PackedFloat32Array([0.0, 0.5, 1.0])
+	glow_grad.colors = PackedColorArray([Color(1.0, 0.74, 0.38, 0.50), Color(1.0, 0.62, 0.26, 0.18), Color(1.0, 0.6, 0.2, 0.0)])
 	var glow_tex := GradientTexture2D.new()
 	glow_tex.gradient = glow_grad
 	glow_tex.fill = GradientTexture2D.FILL_RADIAL
-	glow_tex.fill_from = Vector2(0.5, 0.5)
-	glow_tex.fill_to = Vector2(1.0, 0.5)
+	glow_tex.fill_from = Vector2(0.5, 0.6)
+	glow_tex.fill_to = Vector2(1.0, 0.6)
 	fire_glow.texture = glow_tex
 	fire_glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_place_hero_piece(hero, fire_glow, 0.30, 0.70, 0.28, 1.0)
+	_place_hero_piece(hero, fire_glow, 0.22, 0.84, 0.06, 1.08)
 	var flicker := create_tween().set_loops()
-	flicker.tween_property(fire_glow, "modulate:a", 0.62, 0.9).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	flicker.tween_property(fire_glow, "modulate:a", 0.68, 0.9).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	flicker.tween_property(fire_glow, "modulate:a", 1.0, 1.1).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_add_hero_sprite(hero, "wagon", 0.04, 0.28, 0.30, 0.98, false)
-	_add_hero_sprite(hero, "dog", 0.39, 0.47, 0.68, 0.98, true)
-	_add_hero_sprite(hero, "campfire", 0.47, 0.57, 0.60, 1.0, false)
-	_add_hero_sprite(hero, "pa", 0.60, 0.69, 0.34, 0.98, false)
-	_add_hero_sprite(hero, "ma", 0.68, 0.77, 0.38, 0.98, false)
-	_add_hero_sprite(hero, "sarah", 0.76, 0.84, 0.44, 0.98, false)
+	# The gathering: wagon dim in the dark behind; the family close around
+	# the flames, warmed by them, overlapping like people actually sit.
+	var firelight := Color(1.09, 0.97, 0.85)
+	_add_hero_sprite(hero, "wagon", 0.01, 0.30, 0.24, 0.96, false, Color(0.60, 0.56, 0.53))
+	_add_hero_sprite(hero, "dog", 0.40, 0.485, 0.70, 0.97, true, firelight)
+	_add_hero_sprite(hero, "campfire", 0.475, 0.585, 0.54, 1.0, false)
+	_add_hero_sprite(hero, "pa", 0.585, 0.675, 0.28, 0.97, false, firelight)
+	_add_hero_sprite(hero, "ma", 0.655, 0.745, 0.34, 0.97, false, firelight)
+	_add_hero_sprite(hero, "sarah", 0.725, 0.805, 0.42, 0.97, false, firelight)
 	# Three unboxed choices, bottom right.
+	# The menu sits centered beneath the scene, like a playbill's billing block.
 	var title_menu := VBoxContainer.new()
 	title_menu.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	title_menu.anchor_left = 0.62
-	title_menu.anchor_right = 0.95
-	title_menu.anchor_top = 0.74
-	title_menu.anchor_bottom = 0.74
+	title_menu.anchor_left = 0.38
+	title_menu.anchor_right = 0.62
+	title_menu.anchor_top = 0.78
+	title_menu.anchor_bottom = 0.78
 	title_menu.offset_left = 0.0
 	title_menu.offset_right = 0.0
 	title_menu.add_theme_constant_override("separation", 8)
