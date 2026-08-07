@@ -273,6 +273,11 @@ const TRAILBLAZER_RULES := [
 ]
 # Cards that start locked; the number is finished runs (win or lose) to earn them.
 const LOCKED_CARDS := {"wainwright": 2, "steady_nerve": 3, "trail_map": 4}
+# WINTER IS THE CLOCK. Dawdle and the season catches the wagon: after the
+# first snows every travel day cuts deeper, and past the hard line the
+# blizzards do the killing. This is what makes every day matter.
+const WINTER_SOFT_DAY := 80
+const WINTER_HARD_DAY := 110
 # Two roads to every landmark: the main trail, and a detour with teeth.
 # The alternate is seeded per leg, so a shared trail seed shares its forks.
 const MAIN_ROAD := {"id": "main", "name": "THE MAIN TRAIL", "terms": "steady wheels"}
@@ -313,7 +318,10 @@ const ENCOUNTERS := [
 	{"title": "Grizzly at the Ford", "name": "Grizzly Bear", "art": "res://assets/sprites/enemies/grizzly.png", "body": "A grizzly claims the riverbank. Hold your nerve or the crossing becomes a rout.", "intent": "CHARGE THE PARTY", "hits": "morale", "damage": 9, "health": 26, "reward": 8},
 	{"title": "Rattler in the Grass", "name": "Rattlesnake", "art": "res://assets/sprites/enemies/rattlesnake.png", "body": "The buzz comes from underfoot, close enough to count the rattles. Quick and small — but so is a bullet.", "intent": "STRIKE AT THE NERVES", "hits": "morale", "damage": 5, "health": 8, "reward": 3},
 	{"title": "Eyes in the Rocks", "name": "Mountain Lion", "art": "res://assets/sprites/enemies/mountain-lion.png", "body": "It has been pacing the wagon since the last switchback, patient as winter, pricing out the food stores.", "intent": "RAID THE PROVISIONS", "hits": "supplies", "damage": 7, "health": 22, "reward": 6},
-	{"title": "Toll of the Lonely Road", "name": "Highwaymen", "art": "res://assets/sprites/enemies/highwayman.png", "body": "Three riders block the cut, rifles crossed over saddle horns. 'Road tax,' says the tall one, pricing the wagon with his eyes.", "intent": "SHOOT UP THE WAGON", "hits": "wagon", "damage": 9, "health": 26, "reward": 9}
+	{"title": "Toll of the Lonely Road", "name": "Highwaymen", "art": "res://assets/sprites/enemies/highwayman.png", "body": "Three riders block the cut, rifles crossed over saddle horns. 'Road tax,' says the tall one, pricing the wagon with his eyes.", "intent": "SHOOT UP THE WAGON", "hits": "wagon", "damage": 9, "health": 26, "reward": 9},
+	# The run's climax: Barlow Pass is always contested, and its keeper is
+	# built to outlast a timid deck — kill him before the ramp kills you.
+	{"title": "The Keeper of the Pass", "name": "The Pass Keeper", "art": "res://assets/sprites/enemies/highwayman.png", "body": "At the last gate before the valley a rider waits who has turned back a hundred wagons. He doesn't name a price. He just shakes his head.", "intent": "BREAK THE FAMILY'S WILL", "hits": "morale", "damage": 10, "health": 40, "reward": 15, "boss": true}
 ]
 
 var day := 1
@@ -2982,6 +2990,8 @@ func _on_reward_face_input(event: InputEvent, index: int) -> void:
 func _setup_audio() -> void:
 	var manifest := {
 		"theme": "res://assets/audio/theme.mp3",
+		"theme2": "res://assets/audio/theme2.mp3",
+		"theme3": "res://assets/audio/theme3.mp3",
 		"drone": "res://assets/audio/drone.mp3",
 		"ambient": "res://assets/audio/ambient.wav",
 		"card": "res://assets/audio/card-play.wav",
@@ -2998,7 +3008,7 @@ func _setup_audio() -> void:
 	music_player = AudioStreamPlayer.new()
 	music_player.volume_db = -10.0
 	add_child(music_player)
-	music_player.finished.connect(func() -> void: music_player.play())
+	music_player.finished.connect(_on_music_finished)
 	ambient_player = AudioStreamPlayer.new()
 	ambient_player.volume_db = -15.0
 	add_child(ambient_player)
@@ -3014,13 +3024,36 @@ func _setup_audio() -> void:
 	_set_music("theme")
 
 func _set_music(mode: String) -> void:
-	# Two states, per the score's design: the trail theme, and the lone
-	# drone that takes over when morale runs low.
-	if music_mode == mode or not audio_streams.has(mode) or music_player == null:
+	# Two states: rotating trail themes, or the lone drone at low morale.
+	if music_mode == mode or music_player == null:
 		return
 	music_mode = mode
-	music_player.stream = audio_streams[mode]
+	if mode == "drone":
+		if audio_streams.has("drone"):
+			music_player.stream = audio_streams["drone"]
+			music_player.play()
+	else:
+		_play_random_theme()
+
+func _play_random_theme() -> void:
+	var pool: Array[String] = []
+	for key in ["theme", "theme2", "theme3"]:
+		if audio_streams.has(key):
+			pool.append(key)
+	if pool.is_empty():
+		return
+	music_player.stream = audio_streams[pool[ui_rng.randi() % pool.size()]]
 	music_player.play()
+
+func _on_music_finished() -> void:
+	if music_mode == "drone":
+		music_player.play()
+		return
+	# A breath of trail silence between songs, then a different tune —
+	# a rotating songbook instead of one loop worn to death.
+	await get_tree().create_timer(ui_rng.randf_range(5.0, 11.0)).timeout
+	if music_mode != "drone":
+		_play_random_theme()
 
 func _play_sfx(key: String) -> void:
 	if not audio_streams.has(key) or sfx_players.is_empty():
@@ -4094,13 +4127,20 @@ func _start_encounter() -> void:
 	if game_over or victory:
 		return
 	# Danger grows with the miles: early legs draw from the shallow end of the pool.
-	var max_health := 15 if completed_legs <= 4 else (22 if completed_legs <= 8 else 99)
-	var pool: Array[int] = []
-	for i in ENCOUNTERS.size():
-		if int(ENCOUNTERS[i]["health"]) <= max_health and i != encounter_index:
-			pool.append(i)
-	if not pool.is_empty():
-		encounter_index = pool[randi() % pool.size()]
+	# At Barlow Pass the pool doesn't matter — the Keeper is waiting.
+	if route_index >= ROUTE_STOPS.size() - 2:
+		for i in ENCOUNTERS.size():
+			if ENCOUNTERS[i].get("boss", false):
+				encounter_index = i
+				break
+	else:
+		var max_health := 15 if completed_legs <= 4 else (22 if completed_legs <= 8 else 99)
+		var pool: Array[int] = []
+		for i in ENCOUNTERS.size():
+			if int(ENCOUNTERS[i]["health"]) <= max_health and i != encounter_index and not ENCOUNTERS[i].get("boss", false):
+				pool.append(i)
+		if not pool.is_empty():
+			encounter_index = pool[randi() % pool.size()]
 	var encounter: Dictionary = ENCOUNTERS[encounter_index]
 	encounter_health = int(encounter["health"])
 	if run_modifiers.get("green_country", false):
@@ -4294,6 +4334,11 @@ func _on_continue_pressed() -> void:
 		_enemy_turn()
 		if game_over or morale <= 0:
 			return
+		# ESCALATION: every turn the enemy survives, it grows bolder. A fight
+		# you sit in gets worse — kill fast or pay for the patience.
+		if encounter_active:
+			encounter_threat += 2
+			_float_combo("+2 THREAT")
 		grit = 3
 		_reset_turn_context()
 		_draw_until_five()
@@ -4360,10 +4405,21 @@ func _depart() -> void:
 	if road.has("supplies"):
 		supplies += int(road["supplies"])
 	morale = clamp(morale - travel_days, 0, 100)  # trail fatigue: 1 morale per day on the road
+	# The season is the real enemy: past the first snows every leg bites,
+	# past the hard line the blizzards do the killing.
+	var winter_note := ""
+	if day > WINTER_HARD_DAY:
+		supplies = max(0, supplies - 6)
+		morale = clamp(morale - 8, 0, 100)
+		winter_note = "  ·  BLIZZARDS ON THE ROAD: morale -8, supplies -6"
+	elif day > WINTER_SOFT_DAY:
+		supplies = max(0, supplies - 3)
+		morale = clamp(morale - 3, 0, 100)
+		winter_note = "  ·  first snows: morale -3, supplies -3"
 	if supplies <= 0:
 		morale = max(0, morale - 8)
 	if morale <= 0:
-		death_cause = "hunger walked beside the wagon until the wagon stopped"
+		death_cause = "winter caught the wagon on the open road" if day > WINTER_SOFT_DAY else "hunger walked beside the wagon until the wagon stopped"
 		_end_run(false)
 		return
 	var road_note := ""
@@ -4390,12 +4446,15 @@ func _depart() -> void:
 	completed_legs += 1
 	route_index = min(completed_legs, ROUTE_STOPS.size() - 1)
 	var ox_note := "  ·  %s saved %d day%s" % [party["ox"]["name"], saved_days, "" if saved_days == 1 else "s"] if saved_days > 0 else ""
-	outcome_label.text = "WAGON MOVES WEST  ·  %d travel days  ·  supplies -%d  ·  morale -%d%s%s" % [travel_days, drain_per_day * travel_days, travel_days, ox_note, road_note]
+	outcome_label.text = "WAGON MOVES WEST  ·  %d travel days  ·  supplies -%d  ·  morale -%d%s%s%s" % [travel_days, drain_per_day * travel_days, travel_days, ox_note, road_note, winter_note]
 	_animate_route_transition()
 	# Rhythm of the trail: every third leg is dangerous (every 2nd in Outlaw
 	# Country) — unless the chosen road promises otherwise, or invites worse.
 	var dangerous := completed_legs % _danger_cadence() == 0
-	if road.get("safe", false):
+	# Barlow Pass is ALWAYS contested — no road around its keeper.
+	if route_index >= ROUTE_STOPS.size() - 2:
+		dangerous = true
+	elif road.get("safe", false):
 		if dangerous:
 			outcome_label.text += "  ·  the high trail skirts the danger"
 		dangerous = false
@@ -4855,6 +4914,17 @@ func _refresh_ui() -> void:
 	if day_label == null:
 		return
 	day_label.text = "DAY %02d" % day
+	# The day number IS the doom meter: gold as winter nears, red once the
+	# snows have the road.
+	if day > WINTER_SOFT_DAY:
+		day_label.add_theme_color_override("font_color", Color("#a02818"))
+		day_label.tooltip_text = "Winter has the road. Every leg now costs extra morale and supplies."
+	elif day > WINTER_SOFT_DAY - 20:
+		day_label.add_theme_color_override("font_color", Color("#b18a45"))
+		day_label.tooltip_text = "First snows fall on day %d. The wagon must beat them west." % WINTER_SOFT_DAY
+	else:
+		day_label.add_theme_color_override("font_color", _themed_text(Color("#221c14")))
+		day_label.tooltip_text = "First snows fall on day %d." % WINTER_SOFT_DAY
 	leg_label.text = "LEG %d / 12" % completed_legs
 	destination_label.text = "NEXT · %s" % ROUTE_STOPS[min(route_index + 1, ROUTE_STOPS.size() - 1)]
 	route_note.text = "%s  →  %s" % [ROUTE_STOPS[route_index], ROUTE_STOPS[min(route_index + 1, ROUTE_STOPS.size() - 1)]]

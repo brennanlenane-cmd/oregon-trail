@@ -579,5 +579,30 @@ func _test_full_run() -> void:
 	var alt_road: Dictionary = game._alt_road_for_leg()
 	_check(alt_road.has("name") and alt_road.has("terms"), "every leg offers an alternate road")
 	_check(str(alt_road["id"]) == str(game._alt_road_for_leg()["id"]), "the fork is stable for the seed and leg")
+	# ---- The fun patch: winter clock, escalation, the Pass Keeper ----
+	game.encounter_active = true
+	game.encounter_threat = 6
+	game.encounter_health = 50
+	game.encounter_max_health = 50
+	game.morale = 80
+	game.hand.clear()
+	game._on_continue_pressed()
+	_check(game.encounter_threat >= 8, "an enemy that survives a turn grows bolder (+2 threat)")
+	game.encounter_active = false
+	game.route_index = game.ROUTE_STOPS.size() - 2
+	game._start_encounter()
+	_check(str(game.ENCOUNTERS[game.encounter_index].get("name", "")) == "The Pass Keeper", "the Keeper always waits at Barlow Pass")
+	game.encounter_active = false
+	game.route_index = 3
+	var winter_supplies: int = 50
+	game.supplies = winter_supplies
+	game.morale = 60
+	game.day = 85
+	game.run_mode = "map"
+	game.event_active = false
+	game.reward_pending = false
+	game.grit = 0
+	game._depart()
+	_check(game.day > 85 and game.supplies < winter_supplies - 5, "first snows bite: travel past day 80 drains extra")
 	print("ENDING  ·  %s  ·  day %d  ·  legs %d  ·  graves %d" % ["VICTORY" if game.victory else "DEFEAT", game.day, game.completed_legs, game.graves.size()])
 	print("STATE   ·  cause '%s'  ·  morale %d  supplies %d  wagon %d  ·  guard %d" % [game.death_cause, game.morale, game.supplies, game.wagon_health, guard])
