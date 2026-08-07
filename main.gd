@@ -2230,6 +2230,8 @@ func _build_map_first_ui() -> void:
 	var stage_wagon_path := "res://assets/sprites/family/wagon.png"
 	if ResourceLoader.exists(stage_wagon_path):
 		wagon_img.texture = load(stage_wagon_path) as Texture2D
+		# In a fight the wagon faces its attacker — oxen toward the threat.
+		wagon_img.flip_h = true
 		var wagon_tex_size := (wagon_img.texture as Texture2D).get_size()
 		var wagon_fit := minf(210.0 / wagon_tex_size.x, 240.0 / wagon_tex_size.y)
 		wagon_img.offset_top = 240.0 - wagon_tex_size.y * wagon_fit
@@ -3816,14 +3818,25 @@ func _stage_show_enemy(art_path: String) -> void:
 	if combat_stage == null:
 		return
 	enemy_plate.texture = load(art_path) as Texture2D
-	# Feet on the boards: shrink the plate's box from the top so the sprite's
-	# bottom edge lands exactly on the actor's bottom (KEEP_ASPECT_CENTERED
-	# then has no vertical slack to float in).
+	# Feet on the boards, and honest sizes: a wolf is wolf-sized next to a
+	# wagon; only the grizzly and the mounted man get to loom.
+	const ENEMY_STAGE_HEIGHTS := {
+		"wolf": 110.0, "grizzly": 180.0, "rattlesnake": 72.0,
+		"mountain-lion": 100.0, "road-agent": 140.0, "highwayman": 180.0
+	}
 	if enemy_plate.texture != null:
+		var stem := art_path.get_file().get_basename()
+		var target_h: float = ENEMY_STAGE_HEIGHTS.get(stem, 150.0)
 		var tex_size := (enemy_plate.texture as Texture2D).get_size()
-		var fit_scale := minf(enemy_actor.size.x / tex_size.x, enemy_actor.size.y / tex_size.y)
-		enemy_plate.offset_top = enemy_actor.size.y - tex_size.y * fit_scale
+		var draw_w := tex_size.x * (target_h / tex_size.y)
+		var side_slack := maxf(0.0, (enemy_actor.size.x - draw_w) * 0.5)
+		enemy_plate.offset_top = enemy_actor.size.y - target_h
 		enemy_plate.offset_bottom = 0.0
+		enemy_plate.offset_left = side_slack
+		enemy_plate.offset_right = -side_slack
+		# The intent banner hangs just over the creature's head, not the box's.
+		if stage_intent_banner != null:
+			stage_intent_banner.position.y = enemy_actor.size.y - target_h - 46.0
 	enemy_actor.modulate = Color.WHITE
 	enemy_actor.rotation_degrees = 0.0
 	enemy_actor.pivot_offset = Vector2(160, 260)
