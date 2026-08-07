@@ -136,7 +136,7 @@ class TrailMapCanvas extends Control:
 			if i < current_node:
 				_dashed_line(from, to, Color("#8c2d19"), 4.0, 11.0, 7.0)
 			else:
-				_dotted_line(from, to, Color(0.17, 0.13, 0.10, 0.55), 13.0, 1.8)
+				_dotted_line(from, to, Color(0.15, 0.11, 0.08, 0.75), 13.0, 2.2)
 		for branch in branch_routes:
 			for j in range(branch.size() - 1):
 				var branch_from := Vector2(branch[j].x * size.x, branch[j].y * size.y)
@@ -165,6 +165,9 @@ class TrailMapCanvas extends Control:
 				# Three-step stagger keeps neighboring names off each other.
 				var dy: float = [-12.0, 20.0, -24.0][i % 3]
 				var name_width := font.get_string_size(stop_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 9).x
+				# A little paper chip under each name so it stays legible over
+				# the painted terrain — a pasted-on gazetteer label.
+				draw_rect(Rect2(point.x - name_width * 0.5 - 3.0, point.y + dy - 9.0, name_width + 6.0, 12.0), Color(0.94, 0.90, 0.79, 0.72))
 				draw_string(font, point + Vector2(-name_width * 0.5, dy), stop_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, name_color)
 			if current and wagon_texture != null:
 				# The marker IS the wagon — parked right on the node, swaying.
