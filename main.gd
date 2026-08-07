@@ -2781,8 +2781,9 @@ func _build_map_first_ui() -> void:
 	bark_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	bark_panel.anchor_left = 0.025
 	bark_panel.anchor_right = 0.33
-	bark_panel.anchor_top = 0.195
-	bark_panel.anchor_bottom = 0.195
+	# Below the keepsake chip row — the two used to stack in the same corner.
+	bark_panel.anchor_top = 0.245
+	bark_panel.anchor_bottom = 0.245
 	bark_panel.offset_left = 0.0
 	bark_panel.offset_right = 0.0
 	bark_panel.offset_top = 0.0
@@ -4392,6 +4393,8 @@ func _start_encounter() -> void:
 	encounter_resolved = false
 	enemy_hit_this_turn = false
 	powder_horn_spent = false
+	if outcome_label != null:
+		outcome_label.text = ""
 	encounter_active = true
 	event_active = false
 	_reset_turn_context()
@@ -5258,9 +5261,10 @@ func _refresh_ui() -> void:
 	if money_value != null:
 		money_value.text = "$%d" % money
 	if grit_value != null:
-		grit_value.text = "%d / 3" % grit
+		grit_value.text = str(grit)
+		grit_value.tooltip_text = "Grit refills to %d each turn. Stoke a family card (right-click) for +1, up to %d." % [BASE_GRIT, GRIT_CAP]
 	if grit_pips != null:
-		grit_pips.text = "● ".repeat(grit) + "○ ".repeat(3 - grit)
+		grit_pips.text = "● ".repeat(grit) + "○ ".repeat(maxi(0, BASE_GRIT - grit))
 	_sync_deck_counters()
 	deck_value = null
 	if hand_value != null:
