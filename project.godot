@@ -15,6 +15,10 @@ run/main_scene="res://main.tscn"
 config/features=PackedStringArray("4.6", "Forward Plus")
 config/icon="res://icon.svg"
 
+[autoload]
+
+GameState="*res://scripts/game_state.gd"
+
 [display]
 
 window/size/viewport_width=1280.0
@@ -29,3 +33,7 @@ project/assembly_name="New Game Project"
 [physics]
 
 3d/physics_engine="Jolt Physics"
+
+[rendering]
+
+textures/canvas_textures/default_texture_filter=0
