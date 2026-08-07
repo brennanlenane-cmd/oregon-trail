@@ -453,6 +453,7 @@ var enemy_actor: Control
 var enemy_plate: TextureRect
 var stage_hp_fill: ColorRect
 var stage_hp_bg: ColorRect
+var battle_backdrop: TextureRect
 var stage_hp_label: Label
 var stage_intent_label: Label
 var stage_intent_banner: PanelContainer
@@ -2212,7 +2213,7 @@ func _build_map_first_ui() -> void:
 	encounter_view.add_child(combat_stage)
 	var has_battle_scene := ResourceLoader.exists("res://assets/art/scene/battle-prairie.png")
 	if has_battle_scene:
-		var battle_backdrop := TextureRect.new()
+		battle_backdrop = TextureRect.new()
 		battle_backdrop.name = "BattleBackdrop"
 		battle_backdrop.texture = load("res://assets/art/scene/battle-prairie.png") as Texture2D
 		battle_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -4063,6 +4064,19 @@ func _start_encounter() -> void:
 	if intent_pulse_tween != null and intent_pulse_tween.is_valid():
 		intent_pulse_tween.kill()
 	_ensure_combat_card_in_hand()
+	# The country changes as the trail runs west: prairie, then the Rockies,
+	# then the Snake, then the cold pine dark of the Blue Mountains.
+	if battle_backdrop != null:
+		var region := "prairie"
+		if route_index >= 10:
+			region = "forest"
+		elif route_index >= 8:
+			region = "river"
+		elif route_index >= 5:
+			region = "mountains"
+		var region_path := "res://assets/art/scene/battle-%s.png" % region
+		if ResourceLoader.exists(region_path):
+			battle_backdrop.texture = load(region_path) as Texture2D
 	# Beasts announce themselves; men let the road go quiet.
 	var enemy_stem := str(encounter["art"]).get_file().get_basename()
 	if enemy_stem in ["wolf", "grizzly", "mountain-lion", "rattlesnake"]:
