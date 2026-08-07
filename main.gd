@@ -2632,7 +2632,7 @@ func _build_map_first_ui() -> void:
 	bark_panel.name = "BarkBubble"
 	bark_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	bark_panel.anchor_left = 0.025
-	bark_panel.anchor_right = 0.38
+	bark_panel.anchor_right = 0.33
 	bark_panel.anchor_top = 0.195
 	bark_panel.anchor_bottom = 0.195
 	bark_panel.offset_left = 0.0
