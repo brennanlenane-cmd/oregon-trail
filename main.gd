@@ -331,12 +331,12 @@ const EVENTS := [
 ]
 const REWARD_POOL := ["river_guide", "wagon_repair", "steady_nerve", "trail_map", "wainwright", "rifle", "medicine"]
 const ENCOUNTERS := [
-	{"title": "Bandit Ambush", "name": "Road Agents", "art": "res://assets/art/cutouts/road-agent.png", "body": "A masked bandit blocks the wagon road, pistol raised. The party has one turn to answer.", "intent": "FIRE ON THE WAGON", "hits": "wagon", "damage": 8, "health": 12, "reward": 6},
-	{"title": "Wolf Pack", "name": "Hungry Wolves", "art": "res://assets/art/cutouts/wolf.png", "body": "A gray pack circles the mules at the edge of camp. Their next lunge will cost supplies.", "intent": "LUNGE AT THE STORES", "hits": "supplies", "damage": 6, "health": 15, "reward": 5},
-	{"title": "Grizzly at the Ford", "name": "Grizzly Bear", "art": "res://assets/art/cutouts/grizzly.png", "body": "A grizzly claims the riverbank. Hold your nerve or the crossing becomes a rout.", "intent": "CHARGE THE PARTY", "hits": "morale", "damage": 9, "health": 26, "reward": 8},
-	{"title": "Rattler in the Grass", "name": "Rattlesnake", "art": "res://assets/art/cutouts/rattlesnake.png", "body": "The buzz comes from underfoot, close enough to count the rattles. Quick and small — but so is a bullet.", "intent": "STRIKE AT THE NERVES", "hits": "morale", "damage": 5, "health": 8, "reward": 3},
-	{"title": "Eyes in the Rocks", "name": "Mountain Lion", "art": "res://assets/art/cutouts/mountain-lion.png", "body": "It has been pacing the wagon since the last switchback, patient as winter, pricing out the food stores.", "intent": "RAID THE PROVISIONS", "hits": "supplies", "damage": 7, "health": 22, "reward": 6},
-	{"title": "Toll of the Lonely Road", "name": "Highwaymen", "art": "res://assets/art/cutouts/highwayman.png", "body": "Three riders block the cut, rifles crossed over saddle horns. 'Road tax,' says the tall one, pricing the wagon with his eyes.", "intent": "SHOOT UP THE WAGON", "hits": "wagon", "damage": 9, "health": 26, "reward": 9}
+	{"title": "Bandit Ambush", "name": "Road Agents", "art": "res://assets/sprites/enemies/road-agent.png", "body": "A masked bandit blocks the wagon road, pistol raised. The party has one turn to answer.", "intent": "FIRE ON THE WAGON", "hits": "wagon", "damage": 8, "health": 12, "reward": 6},
+	{"title": "Wolf Pack", "name": "Hungry Wolves", "art": "res://assets/sprites/enemies/wolf.png", "body": "A gray pack circles the mules at the edge of camp. Their next lunge will cost supplies.", "intent": "LUNGE AT THE STORES", "hits": "supplies", "damage": 6, "health": 15, "reward": 5},
+	{"title": "Grizzly at the Ford", "name": "Grizzly Bear", "art": "res://assets/sprites/enemies/grizzly.png", "body": "A grizzly claims the riverbank. Hold your nerve or the crossing becomes a rout.", "intent": "CHARGE THE PARTY", "hits": "morale", "damage": 9, "health": 26, "reward": 8},
+	{"title": "Rattler in the Grass", "name": "Rattlesnake", "art": "res://assets/sprites/enemies/rattlesnake.png", "body": "The buzz comes from underfoot, close enough to count the rattles. Quick and small — but so is a bullet.", "intent": "STRIKE AT THE NERVES", "hits": "morale", "damage": 5, "health": 8, "reward": 3},
+	{"title": "Eyes in the Rocks", "name": "Mountain Lion", "art": "res://assets/sprites/enemies/mountain-lion.png", "body": "It has been pacing the wagon since the last switchback, patient as winter, pricing out the food stores.", "intent": "RAID THE PROVISIONS", "hits": "supplies", "damage": 7, "health": 22, "reward": 6},
+	{"title": "Toll of the Lonely Road", "name": "Highwaymen", "art": "res://assets/sprites/enemies/highwayman.png", "body": "Three riders block the cut, rifles crossed over saddle horns. 'Road tax,' says the tall one, pricing the wagon with his eyes.", "intent": "SHOOT UP THE WAGON", "hits": "wagon", "damage": 9, "health": 26, "reward": 9}
 ]
 
 var day := 1
@@ -1315,6 +1315,32 @@ func _build_ui() -> void:
 	_build_camp_overlay()
 	return
 
+func _add_stage_shadow(actor: Control) -> void:
+	# A soft dark pool under a stage actor's feet — the same grounding trick
+	# as the map pieces, sized to the actor.
+	var shadow := TextureRect.new()
+	var shadow_grad := Gradient.new()
+	shadow_grad.set_color(0, Color(0.1, 0.07, 0.04, 0.30))
+	shadow_grad.set_color(1, Color(0.1, 0.07, 0.04, 0.0))
+	var shadow_tex := GradientTexture2D.new()
+	shadow_tex.gradient = shadow_grad
+	shadow_tex.fill = GradientTexture2D.FILL_RADIAL
+	shadow_tex.fill_from = Vector2(0.5, 0.5)
+	shadow_tex.fill_to = Vector2(1.0, 0.5)
+	shadow.texture = shadow_tex
+	shadow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	shadow.set_anchors_preset(Control.PRESET_FULL_RECT)
+	shadow.anchor_left = 0.08
+	shadow.anchor_right = 0.92
+	shadow.anchor_top = 0.88
+	shadow.anchor_bottom = 1.02
+	shadow.offset_left = 0.0
+	shadow.offset_right = 0.0
+	shadow.offset_top = 0.0
+	shadow.offset_bottom = 0.0
+	shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	actor.add_child(shadow)
+
 func _place_hero_piece(hero: Control, piece: Control, left: float, right: float, top: float, bottom: float) -> void:
 	piece.set_anchors_preset(Control.PRESET_FULL_RECT)
 	piece.anchor_left = left
@@ -2156,12 +2182,23 @@ func _build_map_first_ui() -> void:
 	wagon_actor.offset_right = 240.0
 	wagon_actor.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	combat_stage.add_child(wagon_actor)
+	# Both combatants are 16-bit pieces now — same box as the family on the
+	# map. Shadows anchor them to the parchment boards.
+	_add_stage_shadow(wagon_actor)
 	var wagon_img := TextureRect.new()
 	wagon_img.set_anchors_preset(Control.PRESET_FULL_RECT)
 	wagon_img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	wagon_img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	wagon_img.texture = load("res://assets/art/cutouts/wagon.png") as Texture2D
-	_print_onto_paper(wagon_img)
+	wagon_img.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	var stage_wagon_path := "res://assets/sprites/family/wagon.png"
+	if ResourceLoader.exists(stage_wagon_path):
+		wagon_img.texture = load(stage_wagon_path) as Texture2D
+		var wagon_tex_size := (wagon_img.texture as Texture2D).get_size()
+		var wagon_fit := minf(210.0 / wagon_tex_size.x, 240.0 / wagon_tex_size.y)
+		wagon_img.offset_top = 240.0 - wagon_tex_size.y * wagon_fit
+	else:
+		wagon_img.texture = load("res://assets/art/cutouts/wagon.png") as Texture2D
+		_print_onto_paper(wagon_img)
 	wagon_actor.add_child(wagon_img)
 	stage_block_label = _label("", 16, Color("#1f5c33"))
 	stage_block_label.position = Vector2(70, -30)
@@ -2184,11 +2221,12 @@ func _build_map_first_ui() -> void:
 	enemy_actor.offset_bottom = 10.0
 	enemy_actor.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	combat_stage.add_child(enemy_actor)
+	_add_stage_shadow(enemy_actor)
 	enemy_plate = TextureRect.new()
 	enemy_plate.set_anchors_preset(Control.PRESET_FULL_RECT)
 	enemy_plate.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	enemy_plate.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	_print_onto_paper(enemy_plate)
+	enemy_plate.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	enemy_actor.add_child(enemy_plate)
 	# The health bar rides at the enemy's feet, straddling the floor line —
 	# below the actor it collides with the bark bubble.
@@ -3741,6 +3779,14 @@ func _stage_show_enemy(art_path: String) -> void:
 	if combat_stage == null:
 		return
 	enemy_plate.texture = load(art_path) as Texture2D
+	# Feet on the boards: shrink the plate's box from the top so the sprite's
+	# bottom edge lands exactly on the actor's bottom (KEEP_ASPECT_CENTERED
+	# then has no vertical slack to float in).
+	if enemy_plate.texture != null:
+		var tex_size := (enemy_plate.texture as Texture2D).get_size()
+		var fit_scale := minf(enemy_actor.size.x / tex_size.x, enemy_actor.size.y / tex_size.y)
+		enemy_plate.offset_top = enemy_actor.size.y - tex_size.y * fit_scale
+		enemy_plate.offset_bottom = 0.0
 	enemy_actor.modulate = Color.WHITE
 	enemy_actor.rotation_degrees = 0.0
 	enemy_actor.pivot_offset = Vector2(160, 260)
